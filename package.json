@@ -1,0 +1,19 @@
+{
+  "name": "nfl-own-your-team",
+  "version": "1.0.0",
+  "description": "NFL Fantasy Game to own entire teams through auction-based gameplay",
+  "main": "index.js",
+  "scripts": {
+    "dev": "concurrently \"npm run server\" \"npm run web\"",
+    "server": "cd backend && npm run dev",
+    "web": "cd web && npm start",
+    "install-all": "npm install && cd backend && npm install && cd ../web && npm install && cd ../mobile && npm install",
+    "build": "cd backend && npm run build && cd ../web && npm run build"
+  },
+  "keywords": ["nfl", "fantasy", "auction", "football", "teams"],
+  "author": "Abhishek Gogineni",
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
