@@ -30,8 +30,78 @@ const io = new Server(server, {
   }
 });
 
-// Connect to database
-connectDB();
+// Connect to database and seed if needed
+connectDB().then(async () => {
+  // Debug environment variables
+  console.log('🔍 Environment Check:');
+  console.log('   USE_IN_MEMORY_DB:', process.env.USE_IN_MEMORY_DB);
+  console.log('   SUPER_USER_PASSWORD:', process.env.SUPER_USER_PASSWORD ? '[SET]' : '[NOT SET]');
+  
+  // Auto-seed database if using in-memory DB and no users exist
+  const useInMemory = String(process.env.USE_IN_MEMORY_DB || '').toLowerCase() === 'true';
+  console.log('   Using in-memory DB:', useInMemory);
+  
+  if (useInMemory) {
+    const User = require('./models/User');
+    const NFLTeam = require('./models/NFLTeam');
+    const userCount = await User.countDocuments();
+    console.log('   Current user count:', userCount);
+    
+    if (userCount === 0) {
+      console.log('🌱 Auto-seeding in-memory database...');
+      
+      try {
+        // Seed NFL Teams
+        const nflDataService = require('./services/nflDataService');
+        await nflDataService.seedNFLTeams();
+        
+        // Create Super User
+        console.log('👑 Creating super user...');
+        const superUser = await User.create({
+          username: 'admin',
+          email: process.env.SUPER_USER_EMAIL || 'admin@nflownyourteam.com',
+          password: process.env.SUPER_USER_PASSWORD || 'Password123!',
+          firstName: 'Super',
+          lastName: 'Admin',
+          isSuperUser: true,
+          isVerified: true
+        });
+        console.log(`✅ Super user created: ${superUser.email}`);
+        
+        // Create sample users
+        console.log('👥 Creating sample users...');
+        const sampleUsers = [
+          {
+            username: 'johnfan',
+            email: 'john@example.com',
+            password: 'Password123!',
+            firstName: 'John',
+            lastName: 'Smith',
+            isVerified: true
+          },
+          {
+            username: 'sarahwins',
+            email: 'sarah@example.com',
+            password: 'Password123!',
+            firstName: 'Sarah',
+            lastName: 'Johnson',
+            isVerified: true
+          }
+        ];
+        
+        const users = await User.insertMany(sampleUsers);
+        console.log(`✅ Created ${users.length} sample users`);
+        console.log('🎉 Auto-seeding completed successfully!');
+        
+      } catch (error) {
+        console.error('❌ Error auto-seeding database:', error);
+      }
+    }
+  }
+});
+
+// Trust proxy for rate limiting (required for development)
+app.set('trust proxy', 1);
 
 // Security middleware
 app.use(helmet());
@@ -47,6 +117,8 @@ const limiter = rateLimit({
   message: 'Too many requests from this IP, please try again later.',
   standardHeaders: true,
   legacyHeaders: false,
+  // Skip rate limiting for development
+  skip: () => process.env.NODE_ENV === 'development'
 });
 app.use(limiter);
 

@@ -18,7 +18,7 @@ import {
   selectNotifications,
   selectUnreadNotifications
 } from '../../store/slices/uiSlice';
-import Button from '../common/Button';
+
 
 const Header = () => {
   const dispatch = useDispatch();
@@ -43,7 +43,7 @@ const Header = () => {
   };
 
   return (
-    <header className="sticky top-0 z-40 bg-white shadow-sm border-b border-gray-200">
+    <header className="sticky top-0 z-40 backdrop-blur-md bg-white/10 shadow-lg border-b border-white/20">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between">
           {/* Left side */}
@@ -52,7 +52,7 @@ const Header = () => {
             {isAuthenticated && (
               <button
                 type="button"
-                className="mr-4 rounded-md p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500 lg:hidden"
+                className="mr-4 rounded-md p-2 text-white/70 hover:bg-white/20 hover:text-white focus:outline-none focus:ring-2 focus:ring-yellow-400 lg:hidden transition-colors duration-200"
                 onClick={handleMobileMenuToggle}
               >
                 <span className="sr-only">Open sidebar</span>
@@ -68,7 +68,7 @@ const Header = () => {
             {isAuthenticated && (
               <button
                 type="button"
-                className="mr-4 hidden rounded-md p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500 lg:block"
+                className="mr-4 hidden rounded-md p-2 text-white/70 hover:bg-white/20 hover:text-white focus:outline-none focus:ring-2 focus:ring-yellow-400 lg:block transition-colors duration-200"
                 onClick={handleSidebarToggle}
               >
                 <span className="sr-only">Toggle sidebar</span>
@@ -77,12 +77,15 @@ const Header = () => {
             )}
 
             {/* Logo */}
-            <Link to={isAuthenticated ? "/app/dashboard" : "/"} className="flex items-center">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-600">
-                <span className="text-sm font-bold text-white">NFL</span>
+            <Link to={isAuthenticated ? "/app/dashboard" : "/"} className="flex items-center group">
+              <div className="relative">
+                <div className="absolute -inset-1 bg-gradient-to-r from-yellow-400 to-red-500 rounded-xl blur opacity-30 group-hover:opacity-60 transition duration-300"></div>
+                <div className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-white shadow-lg">
+                  <span className="text-lg">🏈</span>
+                </div>
               </div>
-              <span className="ml-2 text-xl font-bold text-gray-900 hidden sm:block">
-                Own Your Team
+              <span className="ml-3 text-xl font-bold text-white hidden sm:block group-hover:text-yellow-300 transition-colors duration-200">
+                <span className="bg-gradient-to-r from-yellow-400 to-red-500 bg-clip-text text-transparent">NFL</span> Own Your Team
               </span>
             </Link>
           </div>
@@ -93,7 +96,7 @@ const Header = () => {
               <>
                 {/* Notifications */}
                 <Menu as="div" className="relative">
-                  <Menu.Button className="relative rounded-full p-1 text-gray-400 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2">
+                  <Menu.Button className="relative rounded-full p-2 text-white/70 hover:text-white hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-yellow-400 transition-colors duration-200">
                     <span className="sr-only">View notifications</span>
                     <BellIcon className="h-6 w-6" />
                     {unreadNotifications.length > 0 && (
@@ -154,7 +157,7 @@ const Header = () => {
 
                 {/* User menu */}
                 <Menu as="div" className="relative">
-                  <Menu.Button className="flex items-center rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2">
+                  <Menu.Button className="flex items-center rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400 hover:bg-white/20 p-2 transition-colors duration-200">
                     <span className="sr-only">Open user menu</span>
                     {user?.avatar ? (
                       <img
@@ -163,9 +166,9 @@ const Header = () => {
                         alt={user.username}
                       />
                     ) : (
-                      <UserCircleIcon className="h-8 w-8 text-gray-400" />
+                      <UserCircleIcon className="h-8 w-8 text-white/70" />
                     )}
-                    <span className="ml-2 hidden text-sm font-medium text-gray-700 lg:block">
+                    <span className="ml-2 hidden text-sm font-medium text-white lg:block">
                       {user?.firstName || user?.username}
                     </span>
                   </Menu.Button>
@@ -247,17 +250,17 @@ const Header = () => {
               <div className="flex items-center space-x-4">
                 <Link
                   to="/auth/login"
-                  className="text-sm font-medium text-gray-700 hover:text-gray-900"
+                  className="text-sm font-medium text-white/90 hover:text-white px-3 py-2 rounded-lg hover:bg-white/20 transition-colors duration-200"
                 >
-                  Sign in
+                  🏈 Sign in
                 </Link>
-                <Button
-                  as={Link}
-                  to="/auth/register"
-                  size="sm"
-                >
-                  Get Started
-                </Button>
+                <button className="group relative px-4 py-2 text-white font-semibold text-sm rounded-xl transition-all duration-300 transform hover:scale-105" style={{background: 'linear-gradient(45deg, #10b981, #34d399)'}}>
+                  <Link to="/auth/register" className="flex items-center space-x-1">
+                    <span>🚀</span>
+                    <span>Get Started</span>
+                  </Link>
+                  <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-yellow-400/30 to-orange-500/30 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                </button>
               </div>
             )}
           </div>
