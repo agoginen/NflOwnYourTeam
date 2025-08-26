@@ -4,7 +4,7 @@ import { Provider } from 'react-redux';
 import { PersistGate } from 'redux-persist/integration/react';
 import { BrowserRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from 'react-query';
-import { ReactQueryDevtools } from 'react-query/devtools';
+// import { ReactQueryDevtools } from 'react-query/devtools';
 import { Toaster } from 'react-hot-toast';
 
 import './styles/index.css';
@@ -61,9 +61,9 @@ root.render(
                 },
               }}
             />
-            {process.env.NODE_ENV === 'development' && (
+            {/* {process.env.NODE_ENV === 'development' && (
               <ReactQueryDevtools initialIsOpen={false} />
-            )}
+            )} */}
           </BrowserRouter>
         </QueryClientProvider>
       </PersistGate>

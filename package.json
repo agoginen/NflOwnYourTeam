@@ -8,7 +8,9 @@
     "server": "cd backend && npm run dev",
     "web": "cd web && npm start",
     "install-all": "npm install && cd backend && npm install && cd ../web && npm install && cd ../mobile && npm install",
-    "build": "cd backend && npm run build && cd ../web && npm run build"
+    "build": "cd backend && npm run build && cd ../web && npm run build",
+    "seed": "cd backend && npm run seed",
+    "seed:memory": "cd backend && npm run seed:memory"
   },
   "keywords": ["nfl", "fantasy", "auction", "football", "teams"],
   "author": "Abhishek Gogineni",

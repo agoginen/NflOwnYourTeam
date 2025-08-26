@@ -42,6 +42,23 @@ export const register = createAsyncThunk(
   }
 );
 
+export const checkAuthStatus = createAsyncThunk(
+  'auth/checkStatus',
+  async (_, { rejectWithValue }) => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        return rejectWithValue('No token found');
+      }
+      const response = await authService.getCurrentUser();
+      return { user: response.data, token };
+    } catch (error) {
+      localStorage.removeItem('token');
+      return rejectWithValue('Authentication check failed');
+    }
+  }
+);
+
 export const logout = createAsyncThunk(
   'auth/logout',
   async (_, { rejectWithValue }) => {
@@ -57,17 +74,7 @@ export const logout = createAsyncThunk(
   }
 );
 
-export const checkAuthStatus = createAsyncThunk(
-  'auth/checkStatus',
-  async (_, { rejectWithValue }) => {
-    try {
-      const response = await authService.getCurrentUser();
-      return response;
-    } catch (error) {
-      return rejectWithValue('Authentication check failed');
-    }
-  }
-);
+
 
 export const updateProfile = createAsyncThunk(
   'auth/updateProfile',
@@ -173,7 +180,8 @@ const authSlice = createSlice({
       })
       .addCase(checkAuthStatus.fulfilled, (state, action) => {
         state.loading = false;
-        state.user = action.payload.data;
+        state.user = action.payload.user;
+        state.token = action.payload.token;
         state.isAuthenticated = true;
         state.error = null;
       })
@@ -198,6 +206,7 @@ const authSlice = createSlice({
         state.loading = false;
         state.error = action.payload;
       })
+
       
       // Update password
       .addCase(updatePassword.pending, (state) => {
