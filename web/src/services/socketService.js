@@ -1,19 +1,44 @@
 import { io } from 'socket.io-client';
-import { store } from '../store';
-import { 
-  updateCurrentTeam, 
-  addBid, 
-  completeTeamSale, 
-  updateAuctionStatus,
-  updateNextNominator 
-} from '../store/slices/auctionSlice';
-import { addNotification } from '../store/slices/uiSlice';
 import toast from 'react-hot-toast';
+
+// Store and action imports will be dynamic to avoid circular dependencies
+let store = null;
+let actions = null;
 
 class SocketService {
   constructor() {
     this.socket = null;
     this.isConnected = false;
+  }
+
+  // Initialize store and actions dynamically
+  initializeStore(storeInstance) {
+    if (!store) {
+      store = storeInstance;
+      // Dynamically import actions to avoid circular dependencies
+      import('../store/slices/auctionSlice').then(module => {
+        if (!actions) {
+          actions = {
+            updateCurrentTeam: module.updateCurrentTeam,
+            addBid: module.addBid,
+            completeTeamSale: module.completeTeamSale,
+            updateAuctionStatus: module.updateAuctionStatus,
+            updateNextNominator: module.updateNextNominator,
+          };
+        }
+      });
+      import('../store/slices/uiSlice').then(module => {
+        if (!actions) actions = {};
+        actions.addNotification = module.addNotification;
+      });
+    }
+  }
+
+  // Helper to safely dispatch actions
+  dispatch(action) {
+    if (store && action) {
+      this.dispatch(action);
+    }
   }
 
   connect(userId) {
@@ -64,15 +89,17 @@ class SocketService {
 
     // League events
     this.socket.on('league-updated', (data) => {
-      store.dispatch(addNotification({
-        type: 'info',
-        title: 'League Updated',
-        message: data.message || 'League settings have been updated',
-      }));
+      if (actions?.actions?.addNotification) {
+        this.dispatch(actions.actions?.addNotification({
+          type: 'info',
+          title: 'League Updated',
+          message: data.message || 'League settings have been updated',
+        }));
+      }
     });
 
     this.socket.on('member-joined', (data) => {
-      store.dispatch(addNotification({
+      this.dispatch(actions?.addNotification({
         type: 'info',
         title: 'New Member',
         message: `${data.member.username} joined the league`,
@@ -80,7 +107,7 @@ class SocketService {
     });
 
     this.socket.on('member-left', (data) => {
-      store.dispatch(addNotification({
+      this.dispatch(actions?.addNotification({
         type: 'info',
         title: 'Member Left',
         message: `${data.member.username} left the league`,
@@ -90,7 +117,7 @@ class SocketService {
     // Auction events
     this.socket.on('auction-created', (data) => {
       toast.success('Auction has been scheduled!');
-      store.dispatch(addNotification({
+      this.dispatch(actions?.addNotification({
         type: 'success',
         title: 'Auction Created',
         message: data.message,
@@ -99,8 +126,8 @@ class SocketService {
 
     this.socket.on('auction-started', (data) => {
       toast.success('Auction has started!');
-      store.dispatch(updateAuctionStatus('active'));
-      store.dispatch(addNotification({
+      this.dispatch(actions?.updateAuctionStatus('active'));
+      this.dispatch(actions?.addNotification({
         type: 'success',
         title: 'Auction Started',
         message: data.message,
@@ -110,7 +137,7 @@ class SocketService {
     this.socket.on('team-nominated', (data) => {
       const { team, nominator, startingBid, bidEndTime } = data;
       
-      store.dispatch(updateCurrentTeam({
+      this.dispatch(actions?.updateCurrentTeam({
         team: team,
         bid: startingBid,
         bidder: nominator,
@@ -119,7 +146,7 @@ class SocketService {
 
       toast.success(`${team.name} nominated by ${nominator.username}`);
       
-      store.dispatch(addNotification({
+      this.dispatch(actions?.addNotification({
         type: 'info',
         title: 'Team Nominated',
         message: `${team.name} nominated for $${startingBid}`,
@@ -129,7 +156,7 @@ class SocketService {
     this.socket.on('bid-placed', (data) => {
       const { bidder, bidAmount, bidEndTime } = data;
       
-      store.dispatch(addBid({
+      this.dispatch(actions?.addBid({
         bidder: bidder,
         amount: bidAmount,
         timestamp: new Date(),
@@ -137,7 +164,7 @@ class SocketService {
       }));
 
       // Update current auction state
-      store.dispatch(updateCurrentTeam({
+      this.dispatch(actions?.updateCurrentTeam({
         team: null, // Keep current team
         bid: bidAmount,
         bidder: bidder,
@@ -159,35 +186,35 @@ class SocketService {
     this.socket.on('team-sold', (data) => {
       const { team, winner, finalPrice, isAuctionComplete, nextNominator } = data;
       
-      store.dispatch(completeTeamSale({
+      this.dispatch(actions?.completeTeamSale({
         team: team,
         winner: winner,
         finalPrice: finalPrice
       }));
 
       if (nextNominator) {
-        store.dispatch(updateNextNominator(nextNominator));
+        this.dispatch(actions?.updateNextNominator(nextNominator));
       }
 
       toast.success(`${team.name} sold to ${winner.username} for $${finalPrice}`);
       
-      store.dispatch(addNotification({
+      this.dispatch(actions?.addNotification({
         type: 'success',
         title: 'Team Sold',
         message: `${team.name} sold for $${finalPrice}`,
       }));
 
       if (isAuctionComplete) {
-        store.dispatch(updateAuctionStatus('completed'));
+        this.dispatch(actions?.updateAuctionStatus('completed'));
         toast.success('🎉 Auction Complete!', { duration: 5000 });
       }
     });
 
     this.socket.on('auction-paused', (data) => {
-      store.dispatch(updateAuctionStatus('paused'));
+      this.dispatch(actions?.updateAuctionStatus('paused'));
       toast.info('Auction paused');
       
-      store.dispatch(addNotification({
+      this.dispatch(actions?.addNotification({
         type: 'warning',
         title: 'Auction Paused',
         message: data.reason || 'Auction has been paused',
@@ -195,10 +222,10 @@ class SocketService {
     });
 
     this.socket.on('auction-resumed', (data) => {
-      store.dispatch(updateAuctionStatus('active'));
+      this.dispatch(actions?.updateAuctionStatus('active'));
       toast.success('Auction resumed');
       
-      store.dispatch(addNotification({
+      this.dispatch(actions?.addNotification({
         type: 'success',
         title: 'Auction Resumed',
         message: 'Auction has been resumed',
@@ -206,10 +233,10 @@ class SocketService {
     });
 
     this.socket.on('auction-completed', (data) => {
-      store.dispatch(updateAuctionStatus('completed'));
+      this.dispatch(actions?.updateAuctionStatus('completed'));
       toast.success('🎉 Auction Complete!', { duration: 5000 });
       
-      store.dispatch(addNotification({
+      this.dispatch(actions?.addNotification({
         type: 'success',
         title: 'Auction Complete',
         message: data.message,
@@ -218,7 +245,7 @@ class SocketService {
 
     // NFL data events
     this.socket.on('nfl-data-updated', (data) => {
-      store.dispatch(addNotification({
+      this.dispatch(actions?.addNotification({
         type: 'info',
         title: 'NFL Data Updated',
         message: `Week ${data.week} results have been updated`,
@@ -228,7 +255,7 @@ class SocketService {
     this.socket.on('payouts-calculated', (data) => {
       toast.success('Weekly payouts have been calculated!');
       
-      store.dispatch(addNotification({
+      this.dispatch(actions?.addNotification({
         type: 'success',
         title: 'Payouts Calculated',
         message: `Week ${data.week} payouts are now available`,
@@ -243,7 +270,7 @@ class SocketService {
 
     // Custom notification events
     this.socket.on('notification', (notification) => {
-      store.dispatch(addNotification(notification));
+      this.dispatch(actions?.addNotification(notification));
       
       if (notification.showToast !== false) {
         switch (notification.type) {

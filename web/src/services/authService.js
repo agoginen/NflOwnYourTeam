@@ -7,7 +7,6 @@ export const authService = {
     
     if (response.data.success && response.data.token) {
       apiHelpers.setAuthToken(response.data.token);
-      localStorage.setItem('token', response.data.token);
     }
     
     return response.data;
@@ -19,7 +18,6 @@ export const authService = {
     
     if (response.data.success && response.data.token) {
       apiHelpers.setAuthToken(response.data.token);
-      localStorage.setItem('token', response.data.token);
     }
     
     return response.data;
@@ -33,7 +31,6 @@ export const authService = {
       // Continue with logout even if API call fails
     } finally {
       apiHelpers.setAuthToken(null);
-      localStorage.removeItem('token');
     }
     
     return true;
@@ -65,7 +62,6 @@ export const authService = {
     
     if (response.data.success && response.data.token) {
       apiHelpers.setAuthToken(response.data.token);
-      localStorage.setItem('token', response.data.token);
     }
     
     return response.data;
@@ -89,7 +85,6 @@ export const authService = {
     
     if (response.data.success && response.data.token) {
       apiHelpers.setAuthToken(response.data.token);
-      localStorage.setItem('token', response.data.token);
     }
     
     return response.data;
@@ -104,7 +99,6 @@ export const authService = {
     // Clear auth on successful deletion
     if (response.data.success) {
       apiHelpers.setAuthToken(null);
-      localStorage.removeItem('token');
     }
     
     return response.data;

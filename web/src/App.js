@@ -35,12 +35,16 @@ import AdminRoute from './components/auth/AdminRoute';
 // Services
 import { checkAuthStatus } from './store/slices/authSlice';
 import { socketService } from './services/socketService';
+import { store } from './store';
 
 function App() {
   const dispatch = useDispatch();
   const { isAuthenticated, user } = useSelector(state => state.auth);
 
   useEffect(() => {
+    // Initialize socket service with store
+    socketService.initializeStore(store);
+    
     // Check authentication status on app load
     dispatch(checkAuthStatus());
   }, [dispatch]);
