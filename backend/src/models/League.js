@@ -16,7 +16,6 @@ const leagueSchema = new mongoose.Schema({
   inviteCode: {
     type: String,
     required: true,
-    unique: true,
     length: 8,
     uppercase: true
   },
@@ -215,7 +214,7 @@ leagueSchema.virtual('canStartAuction').get(function() {
 });
 
 // Indexes for better performance
-leagueSchema.index({ inviteCode: 1 });
+leagueSchema.index({ inviteCode: 1 }, { unique: true });
 leagueSchema.index({ creator: 1 });
 leagueSchema.index({ 'members.user': 1 });
 leagueSchema.index({ status: 1 });

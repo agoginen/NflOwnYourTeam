@@ -14,7 +14,6 @@ const nflTeamSchema = new mongoose.Schema({
   abbreviation: {
     type: String,
     required: [true, 'Team abbreviation is required'],
-    unique: true,
     uppercase: true,
     length: 3
   },
@@ -221,7 +220,7 @@ nflTeamSchema.virtual('divisionInfo').get(function() {
 });
 
 // Indexes for better performance
-nflTeamSchema.index({ abbreviation: 1 });
+nflTeamSchema.index({ abbreviation: 1 }, { unique: true });
 nflTeamSchema.index({ conference: 1, division: 1 });
 nflTeamSchema.index({ 'currentSeason.year': 1 });
 nflTeamSchema.index({ 'currentSeason.wins': -1 });

@@ -6,6 +6,13 @@ const { asyncHandler, AppError } = require('../middleware/errorHandler');
 
 const router = express.Router();
 
+/**
+ * @swagger
+ * tags:
+ *   name: NFL Teams
+ *   description: NFL team data and statistics endpoints
+ */
+
 // Handle validation errors
 const handleValidationErrors = (req, res, next) => {
   const errors = validationResult(req);
@@ -20,6 +27,62 @@ const handleValidationErrors = (req, res, next) => {
   next();
 };
 
+/**
+ * @swagger
+ * /api/nfl/teams:
+ *   get:
+ *     summary: Get all NFL teams
+ *     tags: [NFL Teams]
+ *     parameters:
+ *       - in: query
+ *         name: conference
+ *         schema:
+ *           type: string
+ *           enum: [AFC, NFC]
+ *         description: Filter by conference
+ *       - in: query
+ *         name: division
+ *         schema:
+ *           type: string
+ *           enum: [North, South, East, West]
+ *         description: Filter by division
+ *       - in: query
+ *         name: sortBy
+ *         schema:
+ *           type: string
+ *           enum: [name, city, wins, winPercentage]
+ *           default: name
+ *         description: Sort field
+ *       - in: query
+ *         name: sortOrder
+ *         schema:
+ *           type: string
+ *           enum: [asc, desc]
+ *           default: asc
+ *         description: Sort order
+ *     responses:
+ *       200:
+ *         description: List of NFL teams
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 count:
+ *                   type: integer
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/NFLTeam'
+ *       400:
+ *         description: Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 // @desc    Get all NFL teams
 // @route   GET /api/nfl/teams
 // @access  Public

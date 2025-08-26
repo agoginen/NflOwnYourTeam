@@ -5,7 +5,6 @@ const userSchema = new mongoose.Schema({
   username: {
     type: String,
     required: [true, 'Username is required'],
-    unique: true,
     trim: true,
     minlength: [3, 'Username must be at least 3 characters long'],
     maxlength: [20, 'Username cannot exceed 20 characters']
@@ -13,7 +12,6 @@ const userSchema = new mongoose.Schema({
   email: {
     type: String,
     required: [true, 'Email is required'],
-    unique: true,
     lowercase: true,
     trim: true,
     match: [/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/, 'Please enter a valid email']
@@ -87,8 +85,8 @@ userSchema.virtual('fullName').get(function() {
 });
 
 // Index for better performance
-userSchema.index({ email: 1 });
-userSchema.index({ username: 1 });
+userSchema.index({ email: 1 }, { unique: true });
+userSchema.index({ username: 1 }, { unique: true });
 userSchema.index({ createdAt: -1 });
 
 // Pre-save middleware to hash password

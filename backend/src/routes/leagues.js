@@ -8,6 +8,13 @@ const { asyncHandler, AppError } = require('../middleware/errorHandler');
 
 const router = express.Router();
 
+/**
+ * @swagger
+ * tags:
+ *   name: Leagues
+ *   description: League management endpoints for fantasy football leagues
+ */
+
 // Handle validation errors
 const handleValidationErrors = (req, res, next) => {
   const errors = validationResult(req);
@@ -22,6 +29,61 @@ const handleValidationErrors = (req, res, next) => {
   next();
 };
 
+/**
+ * @swagger
+ * /api/leagues:
+ *   get:
+ *     summary: Get all leagues for the current user
+ *     tags: [Leagues]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [draft, auction, active, completed, cancelled]
+ *         description: Filter leagues by status
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 50
+ *           default: 10
+ *         description: Number of leagues per page
+ *     responses:
+ *       200:
+ *         description: List of user's leagues
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 count:
+ *                   type: integer
+ *                 pagination:
+ *                   type: object
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/League'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 // @desc    Get all leagues for user
 // @route   GET /api/leagues
 // @access  Private

@@ -11,6 +11,7 @@ const Button = ({
   className = '',
   leftIcon = null,
   rightIcon = null,
+  as: Component = 'button',
   ...props
 }) => {
   const baseClasses = 'btn font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed';
@@ -41,8 +42,8 @@ const Button = ({
   const isDisabled = disabled || loading;
 
   return (
-    <button
-      type={type}
+    <Component
+      type={Component === 'button' ? type : undefined}
       disabled={isDisabled}
       className={combinedClassName}
       {...props}
@@ -63,7 +64,7 @@ const Button = ({
       {!loading && rightIcon && (
         <span className="ml-2">{rightIcon}</span>
       )}
-    </button>
+    </Component>
   );
 };
 

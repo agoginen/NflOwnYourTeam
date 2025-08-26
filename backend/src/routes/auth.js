@@ -7,6 +7,13 @@ const { asyncHandler, AppError } = require('../middleware/errorHandler');
 
 const router = express.Router();
 
+/**
+ * @swagger
+ * tags:
+ *   name: Authentication
+ *   description: User authentication and account management endpoints
+ */
+
 // Validation middleware
 const validateRegistration = [
   body('username')
@@ -57,6 +64,38 @@ const handleValidationErrors = (req, res, next) => {
   next();
 };
 
+/**
+ * @swagger
+ * /api/auth/register:
+ *   post:
+ *     summary: Register a new user
+ *     tags: [Authentication]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/RegisterRequest'
+ *           example:
+ *             username: "john_doe"
+ *             email: "john@example.com"
+ *             password: "Password123!"
+ *             firstName: "John"
+ *             lastName: "Doe"
+ *     responses:
+ *       201:
+ *         description: User registered successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/AuthResponse'
+ *       400:
+ *         description: Validation error or user already exists
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 // @desc    Register user
 // @route   POST /api/auth/register
 // @access  Public
@@ -89,6 +128,35 @@ router.post('/register', validateRegistration, handleValidationErrors, asyncHand
   sendTokenResponse(user, 201, res, 'User registered successfully');
 }));
 
+/**
+ * @swagger
+ * /api/auth/login:
+ *   post:
+ *     summary: Login user
+ *     tags: [Authentication]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/LoginRequest'
+ *           example:
+ *             email: "admin@nflownyourteam.com"
+ *             password: "Admin123!"
+ *     responses:
+ *       200:
+ *         description: Login successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/AuthResponse'
+ *       401:
+ *         description: Invalid credentials
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 // @desc    Login user
 // @route   POST /api/auth/login
 // @access  Public
@@ -127,6 +195,33 @@ router.post('/logout', protect, asyncHandler(async (req, res) => {
   });
 }));
 
+/**
+ * @swagger
+ * /api/auth/me:
+ *   get:
+ *     summary: Get current logged in user
+ *     tags: [Authentication]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Current user information
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   $ref: '#/components/schemas/User'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 // @desc    Get current logged in user
 // @route   GET /api/auth/me
 // @access  Private

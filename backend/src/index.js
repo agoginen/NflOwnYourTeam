@@ -17,8 +17,9 @@ const auctionRoutes = require('./routes/auctions');
 const nflRoutes = require('./routes/nfl');
 const adminRoutes = require('./routes/admin');
 
-const errorHandler = require('./middleware/errorHandler');
+const { errorHandler } = require('./middleware/errorHandler');
 const setupCronJobs = require('./services/cronJobs');
+const { swaggerUi, specs } = require('./config/swagger');
 
 const app = express();
 const server = createServer(app);
@@ -63,6 +64,16 @@ if (process.env.NODE_ENV === 'development') {
 
 // Make io available to routes
 app.set('io', io);
+
+// Swagger Documentation
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs, {
+  explorer: true,
+  customCss: '.swagger-ui .topbar { display: none }',
+  customSiteTitle: 'NFL Own Your Team API Documentation',
+  swaggerOptions: {
+    persistAuthorization: true,
+  }
+}));
 
 // Routes
 app.use('/api/auth', authRoutes);
@@ -116,6 +127,7 @@ server.listen(PORT, () => {
 🚀 Port: ${PORT}
 🌍 Environment: ${process.env.NODE_ENV || 'development'}
 📊 Database: ${process.env.MONGODB_URI ? 'Connected' : 'Not configured'}
+📚 API Documentation: http://localhost:${PORT}/api-docs
 ⏰ Cron jobs: Active
   `);
 });

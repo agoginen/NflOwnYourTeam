@@ -1,22 +1,43 @@
 require('dotenv').config({ path: require('path').join(__dirname, '../../.env') });
 const mongoose = require('mongoose');
-const bcrypt = require('bcryptjs');
+const { MongoMemoryServer } = require('mongodb-memory-server');
 
 // Import models
 const User = require('../models/User');
 const NFLTeam = require('../models/NFLTeam');
 const League = require('../models/League');
-const connectDB = require('../config/database');
 const NFLDataService = require('../services/nflDataService');
+
+let mongod;
+
+const connectToMemoryDB = async () => {
+  try {
+    // Start in-memory MongoDB instance
+    mongod = await MongoMemoryServer.create({
+      instance: {
+        dbName: 'nfl-own-your-team-test'
+      }
+    });
+    
+    const uri = mongod.getUri();
+    console.log('📋 Using in-memory MongoDB:', uri);
+    
+    await mongoose.connect(uri);
+    console.log('✅ Connected to in-memory MongoDB');
+  } catch (error) {
+    console.error('❌ Error connecting to in-memory MongoDB:', error);
+    throw error;
+  }
+};
 
 const seedDatabase = async () => {
   try {
-    console.log('🌱 Starting database seeding...');
+    console.log('🌱 Starting database seeding with in-memory MongoDB...');
     
-    // Connect to database
-    await connectDB();
+    // Connect to in-memory database
+    await connectToMemoryDB();
     
-    // Clear existing data (optional - comment out if you want to keep existing data)
+    // Clear existing data
     console.log('🗑️  Clearing existing data...');
     await User.deleteMany({});
     await NFLTeam.deleteMany({});
@@ -57,22 +78,6 @@ const seedDatabase = async () => {
         firstName: 'Sarah',
         lastName: 'Johnson',
         isVerified: true
-      },
-      {
-        username: 'mikechamp',
-        email: 'mike@example.com',
-        password: 'Password123!',
-        firstName: 'Mike',
-        lastName: 'Wilson',
-        isVerified: true
-      },
-      {
-        username: 'lisafootball',
-        email: 'lisa@example.com',
-        password: 'Password123!',
-        firstName: 'Lisa',
-        lastName: 'Davis',
-        isVerified: true
       }
     ];
     
@@ -84,8 +89,8 @@ const seedDatabase = async () => {
     const nflTeams = await NFLTeam.find({ isActive: true }).select('_id');
     
     const sampleLeague = await League.create({
-      name: 'Championship League 2024',
-      description: 'A competitive league for serious NFL fans',
+      name: 'Test League 2024',
+      description: 'A test league for development',
       inviteCode: await League.generateInviteCode(),
       creator: users[0]._id,
       members: users.map(user => ({
@@ -99,67 +104,16 @@ const seedDatabase = async () => {
         startDate: new Date('2024-09-05'),
         endDate: new Date('2025-02-15')
       },
-      auctionSettings: {
-        startingBudget: 1000,
-        minimumBid: 1,
-        bidIncrement: 1,
-        auctionTimer: 60
-      },
-      payoutStructure: {
-        regularSeasonWin: 2.0,
-        wildCardWin: 5.0,
-        divisionalWin: 8.0,
-        conferenceChampionshipWin: 15.0,
-        superBowlAppearance: 25.0,
-        superBowlWin: 45.0
-      },
       teams: nflTeams.map(team => ({
         nflTeam: team._id,
         owner: null,
         purchasePrice: 0,
         currentEarnings: 0
       })),
-      status: 'draft',
-      isPrivate: true
+      status: 'draft'
     });
     
-    // Update users with league reference
-    await User.updateMany(
-      { _id: { $in: users.map(u => u._id) } },
-      { $push: { leagues: sampleLeague._id } }
-    );
-    
     console.log(`✅ Sample league created: ${sampleLeague.name} (Code: ${sampleLeague.inviteCode})`);
-    
-    // Add some sample NFL results
-    console.log('📊 Adding sample NFL results...');
-    const sampleTeams = await NFLTeam.find({ isActive: true }).limit(8);
-    
-    for (let i = 0; i < sampleTeams.length; i++) {
-      const team = sampleTeams[i];
-      
-      // Add some sample weekly results
-      for (let week = 1; week <= 5; week++) {
-        const teamScore = Math.floor(Math.random() * 35) + 10;
-        const opponentScore = Math.floor(Math.random() * 35) + 10;
-        const result = teamScore > opponentScore ? 'W' : teamScore < opponentScore ? 'L' : 'T';
-        
-        team.updateWeeklyResult(
-          week,
-          result,
-          teamScore,
-          opponentScore,
-          'OPP',
-          Math.random() > 0.5,
-          new Date(2024, 8, week * 7), // September + week
-          false
-        );
-      }
-      
-      await team.save();
-    }
-    
-    console.log('✅ Sample NFL results added');
     
     // Print summary
     console.log('\n🎉 Database seeding completed successfully!\n');
@@ -168,16 +122,26 @@ const seedDatabase = async () => {
     console.log(`   👥 Sample Users: ${users.length} created`);
     console.log(`   🏈 NFL Teams: ${nflTeams.length} created`);
     console.log(`   🏆 Sample League: "${sampleLeague.name}" (Code: ${sampleLeague.inviteCode})`);
-    console.log('\n🚀 You can now start the server and begin testing!\n');
+    console.log('\n💡 This uses an in-memory database for testing.');
+    console.log('   Data will be lost when the process stops.');
+    console.log('   For persistent data, install MongoDB or use MongoDB Atlas.\n');
     
   } catch (error) {
     console.error('❌ Error seeding database:', error);
-    process.exit(1);
   } finally {
-    // Close database connection
-    await mongoose.connection.close();
-    console.log('📱 Database connection closed');
-    process.exit(0);
+    // Keep the database running for testing
+    console.log('🔄 Database ready for testing. Press Ctrl+C to stop.');
+    
+    // Graceful shutdown
+    process.on('SIGINT', async () => {
+      console.log('\n🛑 Shutting down...');
+      await mongoose.connection.close();
+      if (mongod) {
+        await mongod.stop();
+      }
+      console.log('📱 Database connection closed');
+      process.exit(0);
+    });
   }
 };
 
