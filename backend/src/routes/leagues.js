@@ -161,10 +161,6 @@ router.post('/',
       .optional()
       .isInt({ min: 2, max: 32 })
       .withMessage('Max members must be between 2 and 32'),
-    body('auctionSettings.startingBudget')
-      .optional()
-      .isInt({ min: 100 })
-      .withMessage('Starting budget must be at least 100'),
     body('auctionSettings.minimumBid')
       .optional()
       .isInt({ min: 1 })
@@ -176,19 +172,7 @@ router.post('/',
     body('auctionSettings.auctionTimer')
       .optional()
       .isInt({ min: 30, max: 300 })
-      .withMessage('Auction timer must be between 30 and 300 seconds'),
-    body('season.startDate')
-      .isISO8601()
-      .withMessage('Start date must be a valid date'),
-    body('season.endDate')
-      .isISO8601()
-      .withMessage('End date must be a valid date')
-      .custom((endDate, { req }) => {
-        if (new Date(endDate) <= new Date(req.body.season.startDate)) {
-          throw new Error('End date must be after start date');
-        }
-        return true;
-      })
+      .withMessage('Auction timer must be between 30 and 300 seconds')
   ],
   handleValidationErrors,
   asyncHandler(async (req, res) => {
@@ -222,12 +206,9 @@ router.post('/',
       }],
       maxMembers: maxMembers || 32,
       season: {
-        year: season?.year || new Date().getFullYear(),
-        startDate: season.startDate,
-        endDate: season.endDate
+        year: 2025 // Always 2025 for all leagues created now
       },
       auctionSettings: {
-        startingBudget: auctionSettings?.startingBudget || 1000,
         minimumBid: auctionSettings?.minimumBid || 1,
         bidIncrement: auctionSettings?.bidIncrement || 1,
         auctionTimer: auctionSettings?.auctionTimer || 60

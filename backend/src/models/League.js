@@ -50,24 +50,10 @@ const leagueSchema = new mongoose.Schema({
     year: {
       type: Number,
       required: true,
-      default: () => new Date().getFullYear()
-    },
-    startDate: {
-      type: Date,
-      required: true
-    },
-    endDate: {
-      type: Date,
-      required: true
+      default: 2025 // Default to 2025 for all leagues created now
     }
   },
   auctionSettings: {
-    startingBudget: {
-      type: Number,
-      required: true,
-      default: 1000,
-      min: 100
-    },
     minimumBid: {
       type: Number,
       required: true,

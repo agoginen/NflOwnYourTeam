@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clear Browser Cache - NFL Own Your Team</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #f8fafc;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #1e293b;
+            margin-bottom: 20px;
+        }
+        button {
+            background: #ef4444;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            margin: 10px 10px 10px 0;
+            transition: background-color 0.2s;
+        }
+        button:hover {
+            background: #dc2626;
+        }
+        button.success {
+            background: #10b981;
+        }
+        button.success:hover {
+            background: #059669;
+        }
+        .info {
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 20px 0;
+        }
+        .warning {
+            background: #fef3c7;
+            border: 1px solid #f59e0b;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 20px 0;
+        }
+        .list {
+            margin: 15px 0;
+        }
+        .list li {
+            margin: 8px 0;
+        }
+        #status {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 4px;
+            display: none;
+        }
+        .status-success {
+            background: #d1fae5;
+            color: #065f46;
+            border: 1px solid #10b981;
+        }
+        .status-error {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #ef4444;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧹 Clear Browser Cache</h1>
+        
+        <div class="warning">
+            <strong>🚨 URGENT FIX NEEDED</strong><br>
+            The UI is broken after cache fixes. Use the tools below to fix immediately.
+        </div>
+
+        <div class="info">
+            <strong>Current Cache Status:</strong><br>
+            Service Worker: <span id="sw-status">Checking...</span><br>
+            Local Storage Items: <span id="ls-count">Checking...</span><br>
+            Session Storage Items: <span id="ss-count">Checking...</span>
+        </div>
+
+        <h3>Quick Actions:</h3>
+        <button onclick="clearAllCache()">🗑️ Clear All Caches</button>
+        <button onclick="clearServiceWorkers()">⚙️ Clear Service Workers</button>
+        <button onclick="clearStorages()">💾 Clear Storage</button>
+        <button onclick="hardRefresh()" class="success">🔄 Hard Refresh</button>
+
+        <div id="status"></div>
+
+        <h3>Manual Steps:</h3>
+        <div class="list">
+            <ol>
+                <li><strong>Hard Refresh:</strong> Ctrl+Shift+R (Cmd+Shift+R on Mac)</li>
+                <li><strong>DevTools:</strong> F12 → Network tab → Check "Disable cache"</li>
+                <li><strong>Incognito Mode:</strong> Ctrl+Shift+N (Cmd+Shift+N on Mac)</li>
+                <li><strong>Clear Browser Data:</strong> Ctrl+Shift+Delete</li>
+            </ol>
+        </div>
+
+        <div class="info">
+            <strong>💡 Pro Tips:</strong>
+            <ul class="list">
+                <li>Use incognito mode for testing changes</li>
+                <li>Service workers are disabled in development</li>
+                <li>React Query cache is minimal in development</li>
+                <li>Redux Persist may still cache some state</li>
+            </ul>
+        </div>
+
+        <button onclick="goToApp()" class="success">← Back to App</button>
+    </div>
+
+    <script>
+        function showStatus(message, isError = false) {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.className = isError ? 'status-error' : 'status-success';
+            status.style.display = 'block';
+            setTimeout(() => {
+                status.style.display = 'none';
+            }, 3000);
+        }
+
+        async function updateStatus() {
+            // Check service workers
+            if ('serviceWorker' in navigator) {
+                const registrations = await navigator.serviceWorker.getRegistrations();
+                document.getElementById('sw-status').textContent = `${registrations.length} active`;
+            } else {
+                document.getElementById('sw-status').textContent = 'Not supported';
+            }
+
+            // Check storage
+            document.getElementById('ls-count').textContent = localStorage.length;
+            document.getElementById('ss-count').textContent = sessionStorage.length;
+        }
+
+        async function clearServiceWorkers() {
+            if ('serviceWorker' in navigator) {
+                const registrations = await navigator.serviceWorker.getRegistrations();
+                for (let registration of registrations) {
+                    await registration.unregister();
+                }
+                showStatus(`Cleared ${registrations.length} service worker(s)`);
+                updateStatus();
+            } else {
+                showStatus('Service workers not supported', true);
+            }
+        }
+
+        function clearStorages() {
+            const lsCount = localStorage.length;
+            const ssCount = sessionStorage.length;
+            
+            localStorage.clear();
+            sessionStorage.clear();
+            
+            showStatus(`Cleared ${lsCount} localStorage and ${ssCount} sessionStorage items`);
+            updateStatus();
+        }
+
+        async function clearAllCache() {
+            // Clear service workers
+            await clearServiceWorkers();
+            
+            // Clear storage
+            clearStorages();
+            
+            // Clear browser cache if possible
+            if ('caches' in window) {
+                const cacheNames = await caches.keys();
+                await Promise.all(cacheNames.map(name => caches.delete(name)));
+                showStatus(`Cleared all caches including ${cacheNames.length} cache storage(s)`);
+            }
+            
+            updateStatus();
+        }
+
+        function hardRefresh() {
+            showStatus('Performing hard refresh...');
+            setTimeout(() => {
+                window.location.reload(true);
+            }, 500);
+        }
+
+        function goToApp() {
+            window.location.href = '/';
+        }
+
+        // Initialize
+        updateStatus();
+    </script>
+</body>
+</html>

@@ -1,9 +1,9 @@
 import axios from 'axios';
 import toast from 'react-hot-toast';
 
-// Create axios instance
+// Create axios instance with simple configuration
 const api = axios.create({
-  baseURL: process.env.REACT_APP_API_URL || '/api',
+  baseURL: '/api',
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
@@ -16,13 +16,13 @@ api.interceptors.request.use(
     const token = localStorage.getItem('token');
     
     // Debug logging for requests
-    console.log('🔍 API Request:', {
-      method: config.method,
-      url: config.url,
-      baseURL: config.baseURL,
-      fullURL: config.baseURL + config.url,
-      data: config.data
-    });
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🔍 API Request:', {
+        method: config.method,
+        url: config.url,
+        fullURL: config.baseURL + config.url
+      });
+    }
     
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'nfl-own-your-team-v1';
+const CACHE_NAME = `nfl-own-your-team-${self.location.hostname === 'localhost' ? 'dev' : 'prod'}-v${Date.now()}`;
 const urlsToCache = [
   '/',
   '/static/js/bundle.js',
@@ -52,7 +52,13 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Different strategies for different types of requests
+  // In development (localhost), skip caching entirely
+  if (self.location.hostname === 'localhost') {
+    event.respondWith(fetch(request));
+    return;
+  }
+
+  // Different strategies for different types of requests (production only)
   if (url.pathname.startsWith('/api/')) {
     // API requests - Network First
     event.respondWith(networkFirstWithFallback(request));

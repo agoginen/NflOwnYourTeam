@@ -13,14 +13,14 @@ import { store, persistor } from './store';
 import LoadingSpinner from './components/common/LoadingSpinner';
 import reportWebVitals from './reportWebVitals';
 
-// Create React Query client
+// Create React Query client with balanced settings
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      retry: 3,
+      retry: 2,
       retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000),
-      staleTime: 5 * 60 * 1000, // 5 minutes
-      cacheTime: 10 * 60 * 1000, // 10 minutes
+      staleTime: process.env.NODE_ENV === 'development' ? 30 * 1000 : 5 * 60 * 1000, // 30 seconds in dev, 5 minutes in prod
+      cacheTime: process.env.NODE_ENV === 'development' ? 2 * 60 * 1000 : 10 * 60 * 1000, // 2 minutes in dev, 10 minutes in prod
       refetchOnWindowFocus: false,
       refetchOnReconnect: true,
     },
@@ -71,8 +71,8 @@ root.render(
   </React.StrictMode>
 );
 
-// Register service worker for PWA functionality
-if ('serviceWorker' in navigator) {
+// Register service worker for PWA functionality (only in production)
+if ('serviceWorker' in navigator && process.env.NODE_ENV === 'production') {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js')
       .then((registration) => {
@@ -106,6 +106,23 @@ if ('serviceWorker' in navigator) {
       console.log('Service worker updated');
     }
   });
+} else if ('serviceWorker' in navigator && process.env.NODE_ENV === 'development') {
+  // In development, unregister any existing service workers to prevent cache issues
+  navigator.serviceWorker.getRegistrations().then(function(registrations) {
+    for(let registration of registrations) {
+      registration.unregister();
+      console.log('Unregistered service worker for development');
+    }
+  });
+  
+  // Also clear all caches
+  if ('caches' in window) {
+    caches.keys().then(function(names) {
+      for (let name of names) {
+        caches.delete(name);
+      }
+    });
+  }
 }
 
 // Request notification permission

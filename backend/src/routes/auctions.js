@@ -51,8 +51,12 @@ router.post('/',
       throw new AppError('League must have at least 2 members to start auction', 400);
     }
 
+    // For development: Allow creating new auctions even if one exists
+    // In production, you might want to check auction status before allowing new ones
     if (league.auction) {
-      throw new AppError('Auction already exists for this league', 400);
+      // Clear the existing auction reference to allow new auction
+      league.auction = null;
+      await league.save();
     }
 
     // Get all NFL teams
@@ -69,7 +73,6 @@ router.post('/',
       })),
       participants: league.members.filter(member => member.isActive).map(member => ({
         user: member.user,
-        budget: league.auctionSettings.startingBudget,
         spent: 0,
         teamsOwned: [],
         isActive: true
@@ -630,7 +633,7 @@ router.get('/:id/budget',
       throw new AppError('Auction not found', 404);
     }
 
-    const budgetInfo = auction.getParticipantBudget(req.user.id);
+    const budgetInfo = auction.getParticipantSpending(req.user.id);
 
     if (!budgetInfo) {
       throw new AppError('You are not a participant in this auction', 403);

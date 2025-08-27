@@ -148,10 +148,6 @@ const auctionSchema = new mongoose.Schema({
       ref: 'User',
       required: true
     },
-    budget: {
-      type: Number,
-      required: true
-    },
     spent: {
       type: Number,
       default: 0
@@ -235,6 +231,9 @@ const auctionSchema = new mongoose.Schema({
 
 // Virtual for auction progress
 auctionSchema.virtual('progress').get(function() {
+  if (!this.teams || !Array.isArray(this.teams)) {
+    return 0;
+  }
   const soldTeams = this.teams.filter(team => team.status === 'sold').length;
   const totalTeams = this.teams.length;
   return totalTeams > 0 ? Math.round((soldTeams / totalTeams) * 100) : 0;
@@ -242,11 +241,17 @@ auctionSchema.virtual('progress').get(function() {
 
 // Virtual for remaining teams
 auctionSchema.virtual('remainingTeams').get(function() {
+  if (!this.teams || !Array.isArray(this.teams)) {
+    return 0;
+  }
   return this.teams.filter(team => team.status === 'available').length;
 });
 
 // Virtual for active participants
 auctionSchema.virtual('activeParticipants').get(function() {
+  if (!this.participants || !Array.isArray(this.participants)) {
+    return 0;
+  }
   return this.participants.filter(p => p.isActive).length;
 });
 
@@ -352,14 +357,10 @@ auctionSchema.methods.nominateTeam = function(teamId, nominatorId, startingBid) 
     throw new Error(`Starting bid must be at least $${this.settings.minimumBid}`);
   }
   
-  // Check if nominator has enough budget
+  // Check if nominator is a participant
   const participant = this.participants.find(p => p.user.toString() === nominatorId.toString());
   if (!participant) {
     throw new Error('Nominator is not a participant in this auction');
-  }
-  
-  if (participant.spent + startingBid > participant.budget) {
-    throw new Error('Insufficient budget for starting bid');
   }
   
   // Update team status
@@ -413,14 +414,10 @@ auctionSchema.methods.placeBid = function(teamId, bidderId, bidAmount) {
     throw new Error(`Bid must be at least ${this.currentBid + this.settings.bidIncrement}`);
   }
   
-  // Check if bidder has enough budget
+  // Check if bidder is a participant
   const participant = this.participants.find(p => p.user.toString() === bidderId.toString());
   if (!participant) {
     throw new Error('Bidder is not a participant in this auction');
-  }
-  
-  if (participant.spent + bidAmount > participant.budget) {
-    throw new Error('Insufficient budget');
   }
   
   // Mark previous winning bid as not winning
@@ -499,7 +496,8 @@ auctionSchema.methods.moveToNextNominator = function() {
   
   if (this.currentNominationIndex >= this.nominationOrder.length) {
     // Check if all teams have been auctioned
-    const remainingTeams = this.teams.filter(team => team.status === 'available');
+    const remainingTeams = this.teams && Array.isArray(this.teams) ? 
+      this.teams.filter(team => team.status === 'available') : [];
     
     if (remainingTeams.length > 0) {
       // Force nomination of remaining teams - restart the order
@@ -525,12 +523,18 @@ auctionSchema.methods.moveToNextNominator = function() {
 
 // Method to check if auction can end (all teams must be auctioned)
 auctionSchema.methods.canComplete = function() {
+  if (!this.teams || !Array.isArray(this.teams)) {
+    return false;
+  }
   const availableTeams = this.teams.filter(team => team.status === 'available');
   return availableTeams.length === 0;
 };
 
 // Method to get available teams for nomination
 auctionSchema.methods.getAvailableTeams = function() {
+  if (!this.teams || !Array.isArray(this.teams)) {
+    return [];
+  }
   return this.teams.filter(team => team.status === 'available');
 };
 
@@ -573,16 +577,17 @@ auctionSchema.methods.resume = function() {
   return this;
 };
 
-// Method to get participant budget info
-auctionSchema.methods.getParticipantBudget = function(userId) {
+// Method to get participant spending info
+auctionSchema.methods.getParticipantSpending = function(userId) {
+  if (!this.participants || !Array.isArray(this.participants)) {
+    return null;
+  }
   const participant = this.participants.find(p => p.user.toString() === userId.toString());
   if (!participant) return null;
   
   return {
-    total: participant.budget,
-    spent: participant.spent,
-    remaining: participant.budget - participant.spent,
-    teamsOwned: participant.teamsOwned.length
+    spent: participant.spent || 0,
+    teamsOwned: (participant.teamsOwned && Array.isArray(participant.teamsOwned)) ? participant.teamsOwned.length : 0
   };
 };
 
