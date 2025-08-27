@@ -11,7 +11,15 @@ const router = express.Router();
 
 // All routes require super user access
 router.use(protect);
-router.use(authorize('superuser'));
+router.use((req, res, next) => {
+  if (!req.user.isSuperUser) {
+    return res.status(403).json({
+      success: false,
+      message: 'Access denied. Super user privileges required.'
+    });
+  }
+  next();
+});
 
 // Handle validation errors
 const handleValidationErrors = (req, res, next) => {

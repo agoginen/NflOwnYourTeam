@@ -269,6 +269,9 @@ const AuctionPage = () => {
                       src={auction.currentTeam.logo}
                       alt={auction.currentTeam.name}
                       className="w-24 h-24 object-contain"
+                      onError={(e) => {
+                        e.target.outerHTML = `<div class="w-24 h-24 flex items-center justify-center bg-gray-100 rounded-lg border text-2xl font-bold text-gray-600">${auction.currentTeam.abbreviation}</div>`;
+                      }}
                     />
                   </div>
                   
@@ -412,6 +415,9 @@ const AuctionPage = () => {
                       src={nflTeam.logo}
                       alt={nflTeam.name}
                       className="w-8 h-8 mx-auto mb-1"
+                      onError={(e) => {
+                        e.target.outerHTML = `<div class="w-8 h-8 mx-auto mb-1 flex items-center justify-center bg-gray-100 rounded border text-xs font-bold text-gray-600">${nflTeam.abbreviation}</div>`;
+                      }}
                     />
                     <div className="text-xs font-medium text-gray-900">
                       {nflTeam.city}
@@ -560,6 +566,9 @@ const AuctionPage = () => {
                     src={team.logo}
                     alt={team.name}
                     className="w-8 h-8 mx-auto mb-1"
+                    onError={(e) => {
+                      e.target.outerHTML = `<div class="w-8 h-8 mx-auto mb-1 flex items-center justify-center bg-gray-100 rounded border text-xs font-bold text-gray-600">${team.abbreviation}</div>`;
+                    }}
                   />
                   <div className="text-xs font-medium">{team.city}</div>
                   <div className="text-xs text-gray-500">{team.name}</div>

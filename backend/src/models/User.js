@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
+const mongoosePaginate = require('mongoose-paginate-v2');
 
 const userSchema = new mongoose.Schema({
   username: {
@@ -106,7 +107,13 @@ userSchema.pre('save', async function(next) {
 
 // Method to check password
 userSchema.methods.comparePassword = async function(candidatePassword) {
-  return await bcrypt.compare(candidatePassword, this.password);
+  try {
+    const result = await bcrypt.compare(candidatePassword, this.password);
+    return result;
+  } catch (error) {
+    console.error('Password comparison error:', error);
+    return false;
+  }
 };
 
 // Method to get public profile
@@ -119,5 +126,8 @@ userSchema.methods.getPublicProfile = function() {
   delete userObj.verificationTokenExpire;
   return userObj;
 };
+
+// Add pagination plugin
+userSchema.plugin(mongoosePaginate);
 
 module.exports = mongoose.model('User', userSchema);

@@ -117,13 +117,10 @@ if ('Notification' in window && 'serviceWorker' in navigator) {
 }
 
 // PWA install prompt
-let deferredPrompt;
 window.addEventListener('beforeinstallprompt', (e) => {
   console.log('PWA install prompt triggered');
   // Prevent Chrome 67 and earlier from automatically showing the prompt
   e.preventDefault();
-  // Stash the event so it can be triggered later
-  deferredPrompt = e;
   
   // Show your custom install UI here
   // You could dispatch an action to show an install banner in your app
@@ -132,7 +129,6 @@ window.addEventListener('beforeinstallprompt', (e) => {
 
 window.addEventListener('appinstalled', (evt) => {
   console.log('PWA was installed');
-  deferredPrompt = null;
 });
 
 // If you want to start measuring performance in your app, pass a function

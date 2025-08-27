@@ -3,10 +3,9 @@ import { useParams } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { motion } from 'framer-motion';
 import {
-  fetchLeagueById,
+  fetchLeague,
   selectCurrentLeague,
-  selectLeagueLoading,
-  selectLeagueError
+  selectLeagueLoading
 } from '../store/slices/leagueSlice';
 import { fetchNFLStandings, selectNFLStandings } from '../store/slices/nflSlice';
 import LoadingSpinner from '../components/common/LoadingSpinner';
@@ -19,14 +18,13 @@ const StandingsPage = () => {
   const league = useSelector(selectCurrentLeague);
   const nflStandings = useSelector(selectNFLStandings);
   const loading = useSelector(selectLeagueLoading);
-  const error = useSelector(selectLeagueError);
 
   const [selectedWeek, setSelectedWeek] = useState('current');
   const [viewMode, setViewMode] = useState('fantasy'); // 'fantasy' or 'nfl'
 
   useEffect(() => {
     if (id) {
-      dispatch(fetchLeagueById(id));
+      dispatch(fetchLeague(id));
     }
     dispatch(fetchNFLStandings());
   }, [dispatch, id]);
@@ -44,35 +42,67 @@ const StandingsPage = () => {
     );
   }
 
-  // Calculate fantasy standings
+  // Calculate fantasy standings based on new earnings system
   const calculateFantasyStandings = () => {
-    if (!league?.members) return [];
+    if (!league?.teams) return [];
     
-    return league.members.map(member => {
-      const ownedTeams = league.teams?.filter(team => team.owner === member._id) || [];
-      const totalWins = ownedTeams.reduce((sum, team) => sum + (team.nflTeam.stats?.wins || 0), 0);
-      const totalLosses = ownedTeams.reduce((sum, team) => sum + (team.nflTeam.stats?.losses || 0), 0);
-      const totalTies = ownedTeams.reduce((sum, team) => sum + (team.nflTeam.stats?.ties || 0), 0);
-      const winPercentage = totalWins + totalLosses + totalTies > 0 ? 
-        totalWins / (totalWins + totalLosses + totalTies) : 0;
-      
-      return {
-        ...member,
-        ownedTeams,
-        totalWins,
-        totalLosses,
-        totalTies,
-        winPercentage,
-        totalSpent: ownedTeams.reduce((sum, team) => sum + (team.purchasePrice || 0), 0),
-        weeklyEarnings: member.weeklyEarnings || 0
-      };
-    }).sort((a, b) => {
-      // Sort by win percentage, then by total wins
-      if (b.winPercentage !== a.winPercentage) {
-        return b.winPercentage - a.winPercentage;
+    // Group teams by owner
+    const ownerMap = new Map();
+    
+    league.teams.forEach(team => {
+      if (team.owner) {
+        const ownerId = team.owner._id || team.owner;
+        
+        if (!ownerMap.has(ownerId)) {
+          ownerMap.set(ownerId, {
+            owner: team.owner,
+            ownedTeams: [],
+            totalWins: 0,
+            totalLosses: 0,
+            totalTies: 0,
+            totalSpent: 0,
+            totalEarnings: 0,
+            netProfit: 0,
+            roi: 0,
+            playoffTeams: 0
+          });
+        }
+        
+        const ownerData = ownerMap.get(ownerId);
+        ownerData.ownedTeams.push(team);
+        ownerData.totalWins += team.seasonStats?.wins || 0;
+        ownerData.totalLosses += team.seasonStats?.losses || 0;
+        ownerData.totalTies += team.seasonStats?.ties || 0;
+        ownerData.totalSpent += team.purchasePrice || 0;
+        ownerData.totalEarnings += team.currentEarnings || 0;
+        
+        // Count playoff teams
+        if (team.seasonStats?.playoffResults) {
+          const playoffResults = team.seasonStats.playoffResults;
+          if (playoffResults.wildCardWin || playoffResults.divisionalWin || 
+              playoffResults.conferenceChampionshipWin || playoffResults.superBowlAppearance) {
+            ownerData.playoffTeams++;
+          }
+        }
       }
-      return b.totalWins - a.totalWins;
     });
+    
+    // Calculate derived stats and sort
+    return Array.from(ownerMap.values())
+      .map(owner => {
+        owner.netProfit = owner.totalEarnings - owner.totalSpent;
+        owner.roi = owner.totalSpent > 0 ? (owner.netProfit / owner.totalSpent * 100) : 0;
+        owner.winPercentage = (owner.totalWins + owner.totalLosses + owner.totalTies) > 0 ? 
+          owner.totalWins / (owner.totalWins + owner.totalLosses + owner.totalTies) : 0;
+        return owner;
+      })
+      .sort((a, b) => {
+        // Sort by total earnings first, then by ROI
+        if (b.totalEarnings !== a.totalEarnings) {
+          return b.totalEarnings - a.totalEarnings;
+        }
+        return b.roi - a.roi;
+      });
   };
 
   const fantasyStandings = calculateFantasyStandings();
@@ -104,13 +134,16 @@ const StandingsPage = () => {
                 Record (W-L-T)
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Win %
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Total Spent
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Weekly Earnings
+                Total Earnings
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Net Profit
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                ROI %
               </th>
             </tr>
           </thead>
@@ -135,22 +168,34 @@ const StandingsPage = () => {
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="text-sm font-medium text-gray-900">
-                    {member.username}
+                    {member.owner.username}
                   </div>
                   <div className="text-sm text-gray-500">
-                    {member.firstName} {member.lastName}
+                    {member.owner.firstName} {member.owner.lastName}
                   </div>
+                  {member.playoffTeams > 0 && (
+                    <div className="text-xs text-blue-600 font-semibold">
+                      {member.playoffTeams} playoff team{member.playoffTeams !== 1 ? 's' : ''}
+                    </div>
+                  )}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="flex flex-wrap gap-1">
                     {member.ownedTeams.slice(0, 4).map(team => (
-                      <img
-                        key={team._id}
-                        src={team.nflTeam.logo}
-                        alt={team.nflTeam.name}
-                        className="w-6 h-6 object-contain"
-                        title={`${team.nflTeam.city} ${team.nflTeam.name}`}
-                      />
+                      <div key={team._id} className="relative">
+                        <img
+                          src={team.nflTeam.logo}
+                          alt={team.nflTeam.name}
+                          className="w-6 h-6 object-contain"
+                          title={`${team.nflTeam.city} ${team.nflTeam.name} - $${team.currentEarnings.toLocaleString()}`}
+                          onError={(e) => {
+                            e.target.outerHTML = `<div class="w-6 h-6 flex items-center justify-center bg-gray-100 rounded border text-xs font-bold text-gray-600" title="${team.nflTeam.city} ${team.nflTeam.name}">${team.nflTeam.abbreviation}</div>`;
+                          }}
+                        />
+                        {team.currentEarnings > 0 && (
+                          <div className="absolute -top-1 -right-1 w-2 h-2 bg-green-400 rounded-full"></div>
+                        )}
+                      </div>
                     ))}
                     {member.ownedTeams.length > 4 && (
                       <span className="text-xs text-gray-500 self-center">
@@ -167,10 +212,8 @@ const StandingsPage = () => {
                     {member.totalWins}-{member.totalLosses}
                     {member.totalTies > 0 && `-${member.totalTies}`}
                   </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-900">
-                    {(member.winPercentage * 100).toFixed(1)}%
+                  <div className="text-xs text-gray-500">
+                    {(member.winPercentage * 100).toFixed(1)}% win rate
                   </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
@@ -179,11 +222,24 @@ const StandingsPage = () => {
                   </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
+                  <div className="text-sm font-medium text-green-600">
+                    ${member.totalEarnings.toLocaleString()}
+                  </div>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
                   <div className={`text-sm font-medium ${
-                    member.weeklyEarnings > 0 ? 'text-green-600' : 
-                    member.weeklyEarnings < 0 ? 'text-red-600' : 'text-gray-900'
+                    member.netProfit > 0 ? 'text-green-600' : 
+                    member.netProfit < 0 ? 'text-red-600' : 'text-gray-900'
                   }`}>
-                    ${member.weeklyEarnings.toLocaleString()}
+                    ${member.netProfit.toLocaleString()}
+                  </div>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <div className={`text-sm font-medium ${
+                    member.roi > 0 ? 'text-green-600' : 
+                    member.roi < 0 ? 'text-red-600' : 'text-gray-900'
+                  }`}>
+                    {member.roi.toFixed(1)}%
                   </div>
                 </td>
               </motion.tr>
@@ -225,6 +281,9 @@ const StandingsPage = () => {
                             src={team.logo}
                             alt={team.name}
                             className="w-6 h-6 object-contain"
+                            onError={(e) => {
+                              e.target.outerHTML = `<div class="w-6 h-6 flex items-center justify-center bg-gray-100 rounded border text-xs font-bold text-gray-600">${team.abbreviation}</div>`;
+                            }}
                           />
                           <div>
                             <div className="text-sm font-medium text-gray-900">
@@ -322,30 +381,73 @@ const StandingsPage = () => {
                   League Statistics
                 </h3>
                 
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
                   <div className="text-center">
                     <div className="text-2xl font-bold text-primary-600">
-                      {league.members?.length || 0}
+                      ${(league.totalPrizePool || 0).toLocaleString()}
                     </div>
-                    <div className="text-sm text-gray-600">Total Owners</div>
+                    <div className="text-sm text-gray-600">Total Prize Pool</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-2xl font-bold text-primary-600">
-                      {league.teams?.length || 0}
+                    <div className="text-2xl font-bold text-green-600">
+                      ${(league.distributedWinnings || 0).toLocaleString()}
+                    </div>
+                    <div className="text-sm text-gray-600">Earnings Distributed</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-blue-600">
+                      {fantasyStandings.length}
+                    </div>
+                    <div className="text-sm text-gray-600">Active Owners</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-purple-600">
+                      {league.teams?.filter(t => t.owner).length || 0}
                     </div>
                     <div className="text-sm text-gray-600">Teams Owned</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-2xl font-bold text-primary-600">
-                      ${league.totalPayout?.toLocaleString() || 0}
-                    </div>
-                    <div className="text-sm text-gray-600">Total Payout</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-primary-600">
-                      {league.currentWeek || 1}
+                    <div className="text-2xl font-bold text-orange-600">
+                      {league.weeklyUpdates?.currentWeek || 0}
                     </div>
                     <div className="text-sm text-gray-600">Current Week</div>
+                  </div>
+                </div>
+                
+                {/* Payout Structure Summary */}
+                <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <h4 className="text-md font-semibold text-gray-800 mb-3">Regular Season</h4>
+                    <div className="text-sm text-gray-600">
+                      <div className="flex justify-between">
+                        <span>Win Payouts:</span>
+                        <span>{league.payoutStructure?.regularSeasonWins || 0}% of pool</span>
+                      </div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        Shared across all wins (~{((league.totalPrizePool || 0) * (league.payoutStructure?.regularSeasonWins || 0) / 100 / 272).toFixed(0)} per win)
+                      </div>
+                    </div>
+                  </div>
+                  <div>
+                    <h4 className="text-md font-semibold text-gray-800 mb-3">Playoffs</h4>
+                    <div className="text-sm text-gray-600 space-y-1">
+                      <div className="flex justify-between">
+                        <span>Wild Card:</span>
+                        <span>{league.payoutStructure?.wildCardWin || 0}%</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Divisional:</span>
+                        <span>{league.payoutStructure?.divisionalWin || 0}%</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Conference:</span>
+                        <span>{league.payoutStructure?.conferenceChampionshipWin || 0}%</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Super Bowl:</span>
+                        <span>{(league.payoutStructure?.superBowlAppearance || 0) + (league.payoutStructure?.superBowlWin || 0)}%</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>

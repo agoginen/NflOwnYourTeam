@@ -347,6 +347,21 @@ auctionSchema.methods.nominateTeam = function(teamId, nominatorId, startingBid) 
     throw new Error('Team is not available for nomination');
   }
   
+  // Validate starting bid meets minimum requirement
+  if (startingBid < this.settings.minimumBid) {
+    throw new Error(`Starting bid must be at least $${this.settings.minimumBid}`);
+  }
+  
+  // Check if nominator has enough budget
+  const participant = this.participants.find(p => p.user.toString() === nominatorId.toString());
+  if (!participant) {
+    throw new Error('Nominator is not a participant in this auction');
+  }
+  
+  if (participant.spent + startingBid > participant.budget) {
+    throw new Error('Insufficient budget for starting bid');
+  }
+  
   // Update team status
   team.status = 'nominated';
   team.nominatedBy = nominatorId;
@@ -483,10 +498,21 @@ auctionSchema.methods.moveToNextNominator = function() {
   this.currentNominationIndex += 1;
   
   if (this.currentNominationIndex >= this.nominationOrder.length) {
-    // Auction complete
-    this.status = 'completed';
-    this.endTime = new Date();
-    this.currentNominator = null;
+    // Check if all teams have been auctioned
+    const remainingTeams = this.teams.filter(team => team.status === 'available');
+    
+    if (remainingTeams.length > 0) {
+      // Force nomination of remaining teams - restart the order
+      this.currentNominationIndex = 0;
+      const nextNomination = this.nominationOrder[this.currentNominationIndex];
+      this.currentNominator = nextNomination.user;
+      this.currentRound = nextNomination.round;
+    } else {
+      // All teams auctioned - auction complete
+      this.status = 'completed';
+      this.endTime = new Date();
+      this.currentNominator = null;
+    }
   } else {
     // Move to next nominator
     const nextNomination = this.nominationOrder[this.currentNominationIndex];
@@ -495,6 +521,31 @@ auctionSchema.methods.moveToNextNominator = function() {
   }
   
   return this;
+};
+
+// Method to check if auction can end (all teams must be auctioned)
+auctionSchema.methods.canComplete = function() {
+  const availableTeams = this.teams.filter(team => team.status === 'available');
+  return availableTeams.length === 0;
+};
+
+// Method to get available teams for nomination
+auctionSchema.methods.getAvailableTeams = function() {
+  return this.teams.filter(team => team.status === 'available');
+};
+
+// Method to force auto-nomination if player times out (optional enforcement)
+auctionSchema.methods.autoNominate = function() {
+  const availableTeams = this.getAvailableTeams();
+  if (availableTeams.length === 0) {
+    throw new Error('No teams available for auto-nomination');
+  }
+  
+  // Pick first available team
+  const teamToNominate = availableTeams[0];
+  const minimumBid = this.settings.minimumBid;
+  
+  return this.nominateTeam(teamToNominate.nflTeam, this.currentNominator, minimumBid);
 };
 
 // Method to pause auction

@@ -194,12 +194,58 @@ router.get('/debug/users', asyncHandler(async (req, res) => {
     return res.status(404).json({ message: 'Not found' });
   }
   
-  const users = await User.find({}).select('email username firstName lastName');
+  const users = await User.find({}).select('email username firstName lastName isSuperUser isVerified');
   res.json({
     success: true,
     count: users.length,
     users: users
   });
+}));
+
+// Debug endpoint to reset admin password (development only)
+router.post('/debug/reset-admin', asyncHandler(async (req, res) => {
+  if (process.env.NODE_ENV !== 'development') {
+    return res.status(404).json({ message: 'Not found' });
+  }
+  
+  const adminEmail = 'admin@nflownyourteam.com';
+  const adminPassword = 'Admin123!';
+  
+  let adminUser = await User.findOne({ email: adminEmail });
+  
+  if (adminUser) {
+    // Reset password using the model method to ensure proper hashing
+    adminUser.password = adminPassword;
+    await adminUser.save();
+    
+    // Test the password to ensure it worked
+    const testUser = await User.findOne({ email: adminEmail }).select('+password');
+    const isMatch = await testUser.comparePassword(adminPassword);
+    
+    res.json({
+      success: true,
+      message: 'Admin password reset successfully',
+      credentials: { email: adminEmail, password: adminPassword },
+      passwordTest: isMatch ? 'PASS' : 'FAIL'
+    });
+  } else {
+    // Create admin user if not exists
+    adminUser = await User.create({
+      username: 'admin',
+      email: adminEmail,
+      password: adminPassword,
+      firstName: 'Super',
+      lastName: 'Admin',
+      isSuperUser: true,
+      isVerified: true
+    });
+    
+    res.json({
+      success: true,
+      message: 'Admin user created successfully',
+      credentials: { email: adminEmail, password: adminPassword }
+    });
+  }
 }));
 
 // @desc    Logout user / clear cookie

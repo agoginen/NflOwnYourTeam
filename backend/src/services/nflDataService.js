@@ -229,7 +229,7 @@ class NFLDataService {
           primary: '#000000',
           secondary: '#FFFFFF'
         },
-        logo: `/images/teams/${team.abbreviation.toLowerCase()}.png`,
+        logo: `https://a.espncdn.com/i/teamlogos/nfl/500/${team.abbreviation.toLowerCase()}.png`,
         established: 1960,
         stadium: {
           name: `${team.city} Stadium`,

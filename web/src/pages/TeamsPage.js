@@ -49,7 +49,14 @@ const TeamsPage = () => {
     return <LoadingSpinner text="Loading NFL teams..." />;
   }
 
-  const TeamCard = ({ team }) => (
+  const TeamCard = ({ team }) => {
+    const [logoError, setLogoError] = useState(false);
+    
+    const handleLogoError = () => {
+      setLogoError(true);
+    };
+
+    return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
@@ -58,11 +65,20 @@ const TeamsPage = () => {
     >
       <div className="text-center">
         <div className="flex justify-center mb-4">
-          <img
-            src={team.logo}
-            alt={`${team.city} ${team.name}`}
-            className="w-16 h-16 object-contain"
-          />
+          {!logoError ? (
+            <img
+              src={team.logo}
+              alt={`${team.city} ${team.name}`}
+              className="w-16 h-16 object-contain"
+              onError={handleLogoError}
+            />
+          ) : (
+            <div className="w-16 h-16 flex items-center justify-center bg-gray-100 rounded-lg border-2 border-gray-200">
+              <span className="text-2xl font-bold text-gray-600">
+                {team.abbreviation}
+              </span>
+            </div>
+          )}
         </div>
         
         <h3 className="text-lg font-bold text-gray-900 mb-1">
@@ -100,20 +116,37 @@ const TeamsPage = () => {
         )}
       </div>
     </motion.div>
-  );
+    );
+  };
 
-  const TeamListItem = ({ team }) => (
+  const TeamListItem = ({ team }) => {
+    const [logoError, setLogoError] = useState(false);
+    
+    const handleLogoError = () => {
+      setLogoError(true);
+    };
+
+    return (
     <motion.div
       initial={{ opacity: 0, x: -20 }}
       animate={{ opacity: 1, x: 0 }}
       className="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200 p-4 mb-3"
     >
       <div className="flex items-center space-x-4">
-        <img
-          src={team.logo}
-          alt={`${team.city} ${team.name}`}
-          className="w-12 h-12 object-contain"
-        />
+        {!logoError ? (
+          <img
+            src={team.logo}
+            alt={`${team.city} ${team.name}`}
+            className="w-12 h-12 object-contain"
+            onError={handleLogoError}
+          />
+        ) : (
+          <div className="w-12 h-12 flex items-center justify-center bg-gray-100 rounded-lg border-2 border-gray-200">
+            <span className="text-lg font-bold text-gray-600">
+              {team.abbreviation}
+            </span>
+          </div>
+        )}
         
         <div className="flex-1">
           <h3 className="text-lg font-semibold text-gray-900">
@@ -151,7 +184,8 @@ const TeamsPage = () => {
         )}
       </div>
     </motion.div>
-  );
+    );
+  };
 
   const ConferenceSection = ({ conference, divisions }) => (
     <div className="mb-8">

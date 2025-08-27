@@ -28,10 +28,12 @@ const seedDatabase = async () => {
     
     // Create Super User
     console.log('👑 Creating super user...');
+    const adminPassword = process.env.SUPER_USER_PASSWORD || 'Admin123!';
+    console.log(`🔍 Using admin password: ${adminPassword}`);
     const superUser = await User.create({
       username: 'admin',
       email: process.env.SUPER_USER_EMAIL || 'admin@nflownyourteam.com',
-      password: process.env.SUPER_USER_PASSWORD || 'Admin123!',
+      password: adminPassword,
       firstName: 'Super',
       lastName: 'Admin',
       isSuperUser: true,
@@ -76,7 +78,11 @@ const seedDatabase = async () => {
       }
     ];
     
-    const users = await User.insertMany(sampleUsers);
+    const users = [];
+    for (const userData of sampleUsers) {
+      const user = await User.create(userData);
+      users.push(user);
+    }
     console.log(`✅ Created ${users.length} sample users`);
     
     // Create sample league
@@ -164,7 +170,7 @@ const seedDatabase = async () => {
     // Print summary
     console.log('\n🎉 Database seeding completed successfully!\n');
     console.log('📋 Summary:');
-    console.log(`   👑 Super User: ${superUser.email} / ${process.env.SUPER_USER_PASSWORD || 'Admin123!'}`);
+    console.log(`   👑 Super User: ${superUser.email} / ${adminPassword}`);
     console.log(`   👥 Sample Users: ${users.length} created`);
     console.log(`   🏈 NFL Teams: ${nflTeams.length} created`);
     console.log(`   🏆 Sample League: "${sampleLeague.name}" (Code: ${sampleLeague.inviteCode})`);

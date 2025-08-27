@@ -92,7 +92,7 @@ const authorize = (...roles) => {
 // League admin authorization
 const authorizeLeagueAdmin = async (req, res, next) => {
   try {
-    const leagueId = req.params.leagueId || req.body.leagueId;
+    const leagueId = req.params.id || req.params.leagueId || req.body.leagueId;
     
     if (!leagueId) {
       return res.status(400).json({
@@ -112,7 +112,7 @@ const authorizeLeagueAdmin = async (req, res, next) => {
     }
     
     // Check if user is league creator or super user
-    if (league.creator.toString() !== req.user._id.toString() && !req.user.isSuperUser) {
+    if (league.creator.toString() !== req.user.id.toString() && !req.user.isSuperUser) {
       return res.status(403).json({
         success: false,
         message: 'Access denied. Only league administrators can perform this action.'
@@ -133,7 +133,7 @@ const authorizeLeagueAdmin = async (req, res, next) => {
 // League member authorization
 const authorizeLeagueMember = async (req, res, next) => {
   try {
-    const leagueId = req.params.leagueId || req.body.leagueId;
+    const leagueId = req.params.id || req.params.leagueId || req.body.leagueId;
     
     if (!leagueId) {
       return res.status(400).json({
@@ -154,7 +154,7 @@ const authorizeLeagueMember = async (req, res, next) => {
     
     // Check if user is a member of the league or super user
     const isMember = league.members.some(member => 
-      member.user.toString() === req.user._id.toString() && member.isActive
+      member.user.toString() === req.user.id.toString() && member.isActive
     );
     
     if (!isMember && !req.user.isSuperUser) {
