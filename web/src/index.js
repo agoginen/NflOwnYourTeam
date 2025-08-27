@@ -71,6 +71,70 @@ root.render(
   </React.StrictMode>
 );
 
+// Register service worker for PWA functionality
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js')
+      .then((registration) => {
+        console.log('SW registered: ', registration);
+        
+        // Check for updates
+        registration.addEventListener('updatefound', () => {
+          const newWorker = registration.installing;
+          newWorker.addEventListener('statechange', () => {
+            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+              // New content is available, show update notification
+              console.log('New content is available; please refresh.');
+              
+              // You could show a toast or banner here
+              if (window.confirm('New version available! Click OK to update.')) {
+                newWorker.postMessage({ type: 'SKIP_WAITING' });
+                window.location.reload();
+              }
+            }
+          });
+        });
+      })
+      .catch((registrationError) => {
+        console.log('SW registration failed: ', registrationError);
+      });
+  });
+  
+  // Listen for service worker messages
+  navigator.serviceWorker.addEventListener('message', (event) => {
+    if (event.data && event.data.type === 'SW_UPDATE') {
+      console.log('Service worker updated');
+    }
+  });
+}
+
+// Request notification permission
+if ('Notification' in window && 'serviceWorker' in navigator) {
+  if (Notification.permission === 'default') {
+    // Don't request immediately, wait for user interaction
+    console.log('Notification permission not requested yet');
+  }
+}
+
+// PWA install prompt
+let deferredPrompt;
+window.addEventListener('beforeinstallprompt', (e) => {
+  console.log('PWA install prompt triggered');
+  // Prevent Chrome 67 and earlier from automatically showing the prompt
+  e.preventDefault();
+  // Stash the event so it can be triggered later
+  deferredPrompt = e;
+  
+  // Show your custom install UI here
+  // You could dispatch an action to show an install banner in your app
+  console.log('PWA can be installed');
+});
+
+window.addEventListener('appinstalled', (evt) => {
+  console.log('PWA was installed');
+  deferredPrompt = null;
+});
+
 // If you want to start measuring performance in your app, pass a function
 // to log results (for example: reportWebVitals(console.log))
 // or send to an analytics endpoint. Learn more: https://bit.ly/CRA-vitals

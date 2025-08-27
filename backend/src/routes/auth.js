@@ -162,22 +162,44 @@ router.post('/register', validateRegistration, handleValidationErrors, asyncHand
 // @access  Public
 router.post('/login', validateLogin, handleValidationErrors, asyncHandler(async (req, res) => {
   const { email, password } = req.body;
+  
+  // Debug logging
+  console.log('🔍 Login attempt:', { email, passwordLength: password?.length });
 
   // Check for user (include password for comparison)
   const user = await User.findOne({ email }).select('+password');
+  console.log('🔍 User found:', user ? `Yes (${user.email})` : 'No');
 
   if (!user) {
+    console.log('❌ User not found in database');
     throw new AppError('Invalid credentials', 401);
   }
 
   // Check password
   const isMatch = await user.comparePassword(password);
+  console.log('🔍 Password match:', isMatch);
 
   if (!isMatch) {
+    console.log('❌ Password does not match');
     throw new AppError('Invalid credentials', 401);
   }
 
+  console.log('✅ Login successful for user:', user.email);
   sendTokenResponse(user, 200, res, 'Login successful');
+}));
+
+// Debug endpoint to check users (development only)
+router.get('/debug/users', asyncHandler(async (req, res) => {
+  if (process.env.NODE_ENV !== 'development') {
+    return res.status(404).json({ message: 'Not found' });
+  }
+  
+  const users = await User.find({}).select('email username firstName lastName');
+  res.json({
+    success: true,
+    count: users.length,
+    users: users
+  });
 }));
 
 // @desc    Logout user / clear cookie

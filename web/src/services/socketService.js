@@ -37,7 +37,7 @@ class SocketService {
   // Helper to safely dispatch actions
   dispatch(action) {
     if (store && action) {
-      this.dispatch(action);
+      store.dispatch(action);
     }
   }
 
