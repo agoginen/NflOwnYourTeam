@@ -29,9 +29,62 @@ const handleValidationErrors = (req, res, next) => {
   next();
 };
 
-// @desc    Create auction for league
-// @route   POST /api/auctions
-// @access  Private (League Admin)
+/**
+ * @swagger
+ * /api/auctions:
+ *   post:
+ *     summary: Create auction for league
+ *     description: Creates a new auction for a league with all NFL teams available for bidding
+ *     tags: [Auctions]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - leagueId
+ *             properties:
+ *               leagueId:
+ *                 type: string
+ *                 description: League ID to create auction for
+ *                 example: "60f7b3b3b3b3b3b3b3b3b3b3"
+ *               startTime:
+ *                 type: string
+ *                 format: date-time
+ *                 description: Optional start time for the auction
+ *                 example: "2024-01-15T18:00:00Z"
+ *     responses:
+ *       201:
+ *         description: Auction created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Auction created successfully"
+ *                 data:
+ *                   $ref: '#/components/schemas/Auction'
+ *       400:
+ *         description: Bad request - validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - not league admin
+ *       404:
+ *         description: League not found
+ */
 router.post('/',
   protect,
   [
@@ -142,9 +195,43 @@ router.post('/',
   })
 );
 
-// @desc    Get auction
-// @route   GET /api/auctions/:id
-// @access  Private
+/**
+ * @swagger
+ * /api/auctions/{id}:
+ *   get:
+ *     summary: Get auction details
+ *     description: Retrieves detailed information about a specific auction
+ *     tags: [Auctions]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Auction ID
+ *         example: "60f7b3b3b3b3b3b3b3b3b3b3"
+ *     responses:
+ *       200:
+ *         description: Auction details retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/Auction'
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - not a member of the league
+ *       404:
+ *         description: Auction not found
+ */
 router.get('/:id',
   protect,
   [
@@ -249,9 +336,48 @@ router.get('/:id',
   })
 );
 
-// @desc    Start auction
-// @route   POST /api/auctions/:id/start
-// @access  Private (League Admin)
+/**
+ * @swagger
+ * /api/auctions/{id}/start:
+ *   post:
+ *     summary: Start auction
+ *     description: Starts an auction, making it active and setting the first nominator
+ *     tags: [Auctions]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Auction ID
+ *         example: "60f7b3b3b3b3b3b3b3b3b3b3"
+ *     responses:
+ *       200:
+ *         description: Auction started successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Auction started successfully"
+ *                 data:
+ *                   $ref: '#/components/schemas/Auction'
+ *       400:
+ *         description: Bad request - auction cannot be started
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - not league admin
+ *       404:
+ *         description: Auction not found
+ */
 router.post('/:id/start',
   protect,
   [
@@ -296,9 +422,73 @@ router.post('/:id/start',
   })
 );
 
-// @desc    Nominate team
-// @route   POST /api/auctions/:id/nominate
-// @access  Private
+/**
+ * @swagger
+ * /api/auctions/{id}/nominate:
+ *   post:
+ *     summary: Nominate team for auction
+ *     description: Nominates an NFL team for auction bidding
+ *     tags: [Auctions]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Auction ID
+ *         example: "60f7b3b3b3b3b3b3b3b3b3b3"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - teamId
+ *               - startingBid
+ *             properties:
+ *               teamId:
+ *                 type: string
+ *                 description: NFL Team ID to nominate
+ *                 example: "60f7b3b3b3b3b3b3b3b3b3b3"
+ *               startingBid:
+ *                 type: integer
+ *                 minimum: 1
+ *                 description: Starting bid amount
+ *                 example: 5
+ *     responses:
+ *       200:
+ *         description: Team nominated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Team nominated successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     auction:
+ *                       $ref: '#/components/schemas/Auction'
+ *                     timeRemaining:
+ *                       type: integer
+ *                       description: Time remaining in seconds
+ *       400:
+ *         description: Bad request - team not available or validation error
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - not your turn to nominate
+ *       404:
+ *         description: Auction not found
+ */
 router.post('/:id/nominate',
   protect,
   [
@@ -402,9 +592,70 @@ router.post('/:id/nominate',
   })
 );
 
-// @desc    Place bid
-// @route   POST /api/auctions/:id/bid
-// @access  Private
+/**
+ * @swagger
+ * /api/auctions/{id}/bid:
+ *   post:
+ *     summary: Place bid on current team
+ *     description: Places a bid on the currently nominated team
+ *     tags: [Auctions]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Auction ID
+ *         example: "60f7b3b3b3b3b3b3b3b3b3b3"
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - bidAmount
+ *             properties:
+ *               bidAmount:
+ *                 type: integer
+ *                 minimum: 1
+ *                 description: Bid amount
+ *                 example: 10
+ *     responses:
+ *       200:
+ *         description: Bid placed successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Bid placed successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     currentBid:
+ *                       type: integer
+ *                       example: 10
+ *                     currentHighBidder:
+ *                       type: string
+ *                       description: User ID of current high bidder
+ *                     timeRemaining:
+ *                       type: integer
+ *                       description: Time remaining in seconds
+ *       400:
+ *         description: Bad request - invalid bid amount or auction not active
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Auction not found
+ */
 router.post('/:id/bid',
   protect,
   [
@@ -466,9 +717,58 @@ router.post('/:id/bid',
   })
 );
 
-// @desc    Debug auction data
-// @route   GET /api/auctions/:id/debug
-// @access  Private (Development only)
+/**
+ * @swagger
+ * /api/auctions/{id}/debug:
+ *   get:
+ *     summary: Debug auction data (Development only)
+ *     description: Retrieves detailed debug information about an auction for development purposes
+ *     tags: [Auctions, Development]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Auction ID
+ *         example: "60f7b3b3b3b3b3b3b3b3b3b3"
+ *     responses:
+ *       200:
+ *         description: Debug data retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     auctionId:
+ *                       type: string
+ *                     status:
+ *                       type: string
+ *                     participantCount:
+ *                       type: integer
+ *                     participants:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                     currentNominator:
+ *                       type: object
+ *                     teamStatuses:
+ *                       type: array
+ *                     availableTeamsCount:
+ *                       type: integer
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Auction not found
+ */
 router.get('/:id/debug',
   protect,
   [
@@ -549,9 +849,81 @@ router.get('/:id/debug',
   })
 );
 
-// @desc    Get auction teams debug info (Development only)
-// @route   GET /api/auctions/:id/teams-debug
-// @access  Private (Development only)
+/**
+ * @swagger
+ * /api/auctions/{id}/teams-debug:
+ *   get:
+ *     summary: Get auction teams debug info (Development only)
+ *     description: Retrieves detailed information about all teams in an auction for debugging
+ *     tags: [Auctions, Development]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Auction ID
+ *         example: "60f7b3b3b3b3b3b3b3b3b3b3"
+ *     responses:
+ *       200:
+ *         description: Teams debug data retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     totalTeams:
+ *                       type: integer
+ *                       description: Total number of teams
+ *                     availableTeams:
+ *                       type: integer
+ *                       description: Number of available teams
+ *                     nominatedTeams:
+ *                       type: integer
+ *                       description: Number of nominated teams
+ *                     soldTeams:
+ *                       type: integer
+ *                       description: Number of sold teams
+ *                     teams:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           _id:
+ *                             type: string
+ *                           nflTeam:
+ *                             type: object
+ *                             properties:
+ *                               _id:
+ *                                 type: string
+ *                               name:
+ *                                 type: string
+ *                               city:
+ *                                 type: string
+ *                               abbreviation:
+ *                                 type: string
+ *                           status:
+ *                             type: string
+ *                             enum: ['available', 'nominated', 'sold']
+ *                           nominatedBy:
+ *                             type: string
+ *                           soldTo:
+ *                             type: string
+ *                           finalPrice:
+ *                             type: number
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Auction not found
+ */
 router.get('/:id/teams-debug',
   protect,
   [
@@ -769,9 +1141,59 @@ router.post('/:id/complete-team',
   })
 );
 
-// @desc    Pause auction
-// @route   POST /api/auctions/:id/pause
-// @access  Private (League Admin)
+/**
+ * @swagger
+ * /api/auctions/{id}/pause:
+ *   post:
+ *     summary: Pause auction
+ *     description: Pauses an active auction
+ *     tags: [Auctions]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Auction ID
+ *         example: "60f7b3b3b3b3b3b3b3b3b3b3"
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               reason:
+ *                 type: string
+ *                 description: Reason for pausing the auction
+ *                 example: "Technical difficulties"
+ *     responses:
+ *       200:
+ *         description: Auction paused successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Auction paused successfully"
+ *                 data:
+ *                   $ref: '#/components/schemas/Auction'
+ *       400:
+ *         description: Bad request - auction cannot be paused
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - not league admin
+ *       404:
+ *         description: Auction not found
+ */
 router.post('/:id/pause',
   protect,
   [
@@ -821,9 +1243,48 @@ router.post('/:id/pause',
   })
 );
 
-// @desc    Resume auction
-// @route   POST /api/auctions/:id/resume
-// @access  Private (League Admin)
+/**
+ * @swagger
+ * /api/auctions/{id}/resume:
+ *   post:
+ *     summary: Resume auction
+ *     description: Resumes a paused auction
+ *     tags: [Auctions]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Auction ID
+ *         example: "60f7b3b3b3b3b3b3b3b3b3b3"
+ *     responses:
+ *       200:
+ *         description: Auction resumed successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Auction resumed successfully"
+ *                 data:
+ *                   $ref: '#/components/schemas/Auction'
+ *       400:
+ *         description: Bad request - auction cannot be resumed
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - not league admin
+ *       404:
+ *         description: Auction not found
+ */
 router.post('/:id/resume',
   protect,
   [
@@ -868,9 +1329,62 @@ router.post('/:id/resume',
   })
 );
 
-// @desc    Get auction bids
-// @route   GET /api/auctions/:id/bids
-// @access  Private
+/**
+ * @swagger
+ * /api/auctions/{id}/bids:
+ *   get:
+ *     summary: Get auction bids
+ *     description: Retrieves all bids for a specific auction
+ *     tags: [Auctions]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Auction ID
+ *         example: "60f7b3b3b3b3b3b3b3b3b3b3"
+ *     responses:
+ *       200:
+ *         description: Bids retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       _id:
+ *                         type: string
+ *                         description: Bid ID
+ *                       team:
+ *                         type: string
+ *                         description: NFL Team ID
+ *                       bidder:
+ *                         type: string
+ *                         description: User ID of bidder
+ *                       amount:
+ *                         type: integer
+ *                         description: Bid amount
+ *                       timestamp:
+ *                         type: string
+ *                         format: date-time
+ *                       isWinning:
+ *                         type: boolean
+ *                         description: Whether this is the current winning bid
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Auction not found
+ */
 router.get('/:id/bids',
   protect,
   [
@@ -910,9 +1424,54 @@ router.get('/:id/bids',
   })
 );
 
-// @desc    Get participant budget info
-// @route   GET /api/auctions/:id/budget
-// @access  Private
+/**
+ * @swagger
+ * /api/auctions/{id}/budget:
+ *   get:
+ *     summary: Get participant budget info
+ *     description: Retrieves budget information for the current user in the auction
+ *     tags: [Auctions]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Auction ID
+ *         example: "60f7b3b3b3b3b3b3b3b3b3b3"
+ *     responses:
+ *       200:
+ *         description: Budget info retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     spent:
+ *                       type: integer
+ *                       description: Amount spent so far
+ *                       example: 25
+ *                     teamsOwned:
+ *                       type: integer
+ *                       description: Number of teams owned
+ *                       example: 2
+ *                     remainingBudget:
+ *                       type: integer
+ *                       description: Remaining budget (unlimited = -1)
+ *                       example: -1
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Auction not found
+ */
 router.get('/:id/budget',
   protect,
   [
