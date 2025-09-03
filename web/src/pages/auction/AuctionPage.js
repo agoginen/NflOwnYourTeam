@@ -205,10 +205,11 @@ const AuctionPage = () => {
 
   const getAuctionStatusColor = () => {
     switch (auction.status) {
-      case 'draft': return 'bg-gray-500';
+      case 'scheduled': return 'bg-gray-500';
       case 'active': return 'bg-green-500';
       case 'paused': return 'bg-yellow-500';
       case 'completed': return 'bg-blue-500';
+      case 'cancelled': return 'bg-red-500';
       default: return 'bg-gray-500';
     }
   };
@@ -250,7 +251,7 @@ const AuctionPage = () => {
             <div className="flex items-center space-x-3">
               {isAuctioneer && (
                 <>
-                  {auction.status === 'draft' && (
+                  {auction.status === 'scheduled' && (
                     <Button onClick={handleStartAuction} className="bg-green-600 hover:bg-green-700">
                       Start Auction
                     </Button>
@@ -398,7 +399,7 @@ const AuctionPage = () => {
                   No Team Currently Being Auctioned
                 </h3>
                 <p className="text-gray-500">
-                  {auction.status === 'draft' ? 
+                  {auction.status === 'scheduled' ? 
                     'Waiting for auction to start...' : 
                     'Waiting for next team nomination...'}
                 </p>

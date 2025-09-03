@@ -1,6 +1,47 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import { nflService } from '../../services/nflService';
 
+// Sanitize NFL team object to remove virtual properties and ensure React-safe values
+const sanitizeNFLTeam = (teamData) => {
+  if (!teamData || typeof teamData !== 'object') return teamData;
+  
+  const {
+    // Remove virtual properties that cause React rendering issues
+    fullName,
+    record,
+    winPercentage,
+    divisionInfo,
+    id, // Remove Mongoose virtual id
+    // Keep only serializable properties
+    ...sanitized
+  } = teamData;
+  
+  // Ensure string values are properly converted
+  if (sanitized.name !== undefined) {
+    sanitized.name = String(sanitized.name);
+  }
+  if (sanitized.city !== undefined) {
+    sanitized.city = String(sanitized.city);
+  }
+  if (sanitized.abbreviation !== undefined) {
+    sanitized.abbreviation = String(sanitized.abbreviation);
+  }
+  if (sanitized.conference !== undefined) {
+    sanitized.conference = String(sanitized.conference);
+  }
+  if (sanitized.division !== undefined) {
+    sanitized.division = String(sanitized.division);
+  }
+  
+  return sanitized;
+};
+
+// Sanitize NFL teams array
+const sanitizeNFLTeams = (teamsData) => {
+  if (!Array.isArray(teamsData)) return teamsData;
+  return teamsData.map(team => sanitizeNFLTeam(team));
+};
+
 // Initial state
 const initialState = {
   teams: [],
@@ -114,7 +155,7 @@ const nflSlice = createSlice({
     updateTeam: (state, action) => {
       const teamIndex = state.teams.findIndex(team => team._id === action.payload._id);
       if (teamIndex !== -1) {
-        state.teams[teamIndex] = action.payload;
+        state.teams[teamIndex] = sanitizeNFLTeam(action.payload);
       }
     },
     setCurrentWeek: (state, action) => {
@@ -132,7 +173,7 @@ const nflSlice = createSlice({
         state.loading = false;
         // Handle both array and grouped data structures
         if (Array.isArray(action.payload)) {
-          state.teams = action.payload;
+          state.teams = sanitizeNFLTeams(action.payload);
         } else {
           // Flatten grouped data
           const teams = [];
@@ -141,7 +182,7 @@ const nflSlice = createSlice({
               teams.push(...division);
             });
           });
-          state.teams = teams;
+          state.teams = sanitizeNFLTeams(teams);
         }
         state.error = null;
       })

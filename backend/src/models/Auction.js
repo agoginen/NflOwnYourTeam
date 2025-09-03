@@ -6,6 +6,11 @@ const auctionSchema = new mongoose.Schema({
     ref: 'League',
     required: true
   },
+  auctioneer: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
   status: {
     type: String,
     enum: ['scheduled', 'active', 'paused', 'completed', 'cancelled'],

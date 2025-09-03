@@ -215,7 +215,7 @@ const LoginPage = () => {
                 const passwordInput = document.querySelector('input[name="password"]');
                 if (emailInput && passwordInput) {
                   emailInput.value = 'admin@nflownyourteam.com';
-                  passwordInput.value = 'Password123!';
+                  passwordInput.value = 'Admin123!';
                   emailInput.dispatchEvent(new Event('input', { bubbles: true }));
                   passwordInput.dispatchEvent(new Event('input', { bubbles: true }));
                 }

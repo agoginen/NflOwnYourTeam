@@ -304,17 +304,18 @@ const LeagueDetailPage = () => {
                 <h3 className="font-medium text-blue-800">Draft in Progress</h3>
                 <p className="text-sm text-blue-700">Your league draft is currently active. Join now to participate in the auction!</p>
                 {process.env.NODE_ENV === 'development' && (
-                  <p className="text-xs text-gray-600 mt-1">Debug: Auction ID = {league.auction}</p>
+                  <p className="text-xs text-gray-600 mt-1">Debug: Auction ID = {String(league.auction?._id || league.auction || 'None')}</p>
                 )}
               </div>
               <Button
                 onClick={() => {
                   console.log('🔍 Joining auction:', league.auction);
-                  if (!league.auction) {
+                  const auctionId = league.auction?._id || league.auction;
+                  if (!auctionId) {
                     toast.error('Auction ID not found. Please refresh the page.');
                     return;
                   }
-                  navigate(`/app/auctions/${league.auction}`);
+                  navigate(`/app/auctions/${auctionId}`);
                 }}
                 className="bg-blue-600 hover:bg-blue-700"
               >

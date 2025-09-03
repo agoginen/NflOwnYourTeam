@@ -81,7 +81,7 @@ const LeaguesPage = () => {
                 {league.auction && (
                   <Button
                     as={Link}
-                    to={`/app/auctions/${league.auction}`}
+                    to={`/app/auctions/${league.auction?._id || league.auction}`}
                     size="sm"
                     className="flex-1"
                   >

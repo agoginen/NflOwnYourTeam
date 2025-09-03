@@ -2,6 +2,99 @@ import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import { leagueService } from '../../services/leagueService';
 import toast from 'react-hot-toast';
 
+// Sanitize league object to remove virtual properties and ensure React-safe values
+const sanitizeLeague = (leagueData) => {
+  if (!leagueData || typeof leagueData !== 'object') return leagueData;
+  
+  const {
+    // Remove virtual properties that cause React rendering issues
+    memberCount,
+    availableSpots,
+    isFull,
+    canStartAuction,
+    id, // Remove Mongoose virtual id
+    // Keep only serializable properties
+    ...sanitized
+  } = leagueData;
+  
+  // Ensure string values are properly converted
+  if (sanitized.name !== undefined) {
+    sanitized.name = String(sanitized.name);
+  }
+  if (sanitized.status !== undefined) {
+    sanitized.status = String(sanitized.status);
+  }
+  if (sanitized.inviteCode !== undefined) {
+    sanitized.inviteCode = String(sanitized.inviteCode);
+  }
+  
+  // Sanitize creator
+  if (sanitized.creator && typeof sanitized.creator === 'object') {
+    const { fullName, id: creatorId, ...creatorClean } = sanitized.creator;
+    sanitized.creator = {
+      ...creatorClean,
+      username: String(sanitized.creator.username || ''),
+      firstName: String(sanitized.creator.firstName || ''),
+      lastName: String(sanitized.creator.lastName || ''),
+    };
+  }
+  
+  // Sanitize auction reference - ensure it's either a string ID or properly sanitized object
+  if (sanitized.auction && typeof sanitized.auction === 'object') {
+    // If auction is populated, extract just the ID
+    sanitized.auction = sanitized.auction._id || sanitized.auction;
+  }
+  
+  // Sanitize members array
+  if (Array.isArray(sanitized.members)) {
+    sanitized.members = sanitized.members.map(member => {
+      const cleanMember = { ...member };
+      if (cleanMember.user && typeof cleanMember.user === 'object') {
+        const { fullName, id: userId, ...userClean } = cleanMember.user;
+        cleanMember.user = {
+          ...userClean,
+          username: String(cleanMember.user.username || ''),
+          firstName: String(cleanMember.user.firstName || ''),
+          lastName: String(cleanMember.user.lastName || ''),
+        };
+      }
+      return cleanMember;
+    });
+  }
+  
+  // Sanitize teams array
+  if (Array.isArray(sanitized.teams)) {
+    sanitized.teams = sanitized.teams.map(team => {
+      const cleanTeam = { ...team };
+      if (cleanTeam.nflTeam && typeof cleanTeam.nflTeam === 'object') {
+        const { fullName, record, winPercentage, divisionInfo, id: teamId, ...nflTeamClean } = cleanTeam.nflTeam;
+        cleanTeam.nflTeam = {
+          ...nflTeamClean,
+          name: String(cleanTeam.nflTeam.name || ''),
+          city: String(cleanTeam.nflTeam.city || ''),
+          abbreviation: String(cleanTeam.nflTeam.abbreviation || ''),
+        };
+      }
+      if (cleanTeam.owner && typeof cleanTeam.owner === 'object') {
+        const { fullName, id: ownerId, ...ownerClean } = cleanTeam.owner;
+        cleanTeam.owner = {
+          ...ownerClean,
+          username: String(cleanTeam.owner.username || ''),
+        };
+      }
+      return cleanTeam;
+    });
+  }
+  
+  return sanitized;
+};
+
+// Sanitize leagues array
+const sanitizeLeagues = (leaguesData) => {
+  if (!Array.isArray(leaguesData)) return leaguesData;
+  return leaguesData.map(league => sanitizeLeague(league));
+};
+
 // Initial state
 const initialState = {
   leagues: [],
@@ -152,7 +245,7 @@ const leagueSlice = createSlice({
       state.error = null;
     },
     setCurrentLeague: (state, action) => {
-      state.currentLeague = action.payload;
+      state.currentLeague = sanitizeLeague(action.payload);
     },
     clearCurrentLeague: (state) => {
       state.currentLeague = null;
@@ -161,11 +254,11 @@ const leagueSlice = createSlice({
     updateLeagueInList: (state, action) => {
       const index = state.leagues.findIndex(league => league._id === action.payload._id);
       if (index !== -1) {
-        state.leagues[index] = action.payload;
+        state.leagues[index] = sanitizeLeague(action.payload);
       }
     },
     addLeagueToList: (state, action) => {
-      state.leagues.unshift(action.payload);
+      state.leagues.unshift(sanitizeLeague(action.payload));
     },
     removeLeagueFromList: (state, action) => {
       state.leagues = state.leagues.filter(league => league._id !== action.payload);
@@ -180,7 +273,7 @@ const leagueSlice = createSlice({
       })
       .addCase(fetchLeagues.fulfilled, (state, action) => {
         state.loading = false;
-        state.leagues = action.payload.docs || action.payload;
+        state.leagues = sanitizeLeagues(action.payload.docs || action.payload);
         state.error = null;
       })
       .addCase(fetchLeagues.rejected, (state, action) => {
@@ -195,7 +288,7 @@ const leagueSlice = createSlice({
       })
       .addCase(fetchLeague.fulfilled, (state, action) => {
         state.loading = false;
-        state.currentLeague = action.payload;
+        state.currentLeague = sanitizeLeague(action.payload);
         state.error = null;
       })
       .addCase(fetchLeague.rejected, (state, action) => {
@@ -210,8 +303,9 @@ const leagueSlice = createSlice({
       })
       .addCase(createLeague.fulfilled, (state, action) => {
         state.createLoading = false;
-        state.leagues.unshift(action.payload);
-        state.currentLeague = action.payload;
+        const sanitizedLeague = sanitizeLeague(action.payload);
+        state.leagues.unshift(sanitizedLeague);
+        state.currentLeague = sanitizedLeague;
         state.error = null;
       })
       .addCase(createLeague.rejected, (state, action) => {

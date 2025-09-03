@@ -72,6 +72,7 @@ router.post('/',
     // Create auction
     const auction = await Auction.create({
       league: league._id,
+      auctioneer: req.user.id, // Set the creator as the auctioneer
       startTime: startTime ? new Date(startTime) : new Date(),
       bidTimer: league.auctionSettings.auctionTimer,
       teams: nflTeams.map(team => ({
@@ -104,6 +105,10 @@ router.post('/',
       {
         path: 'league',
         select: 'name'
+      },
+      {
+        path: 'auctioneer',
+        select: 'username firstName lastName'
       },
       {
         path: 'participants.user',
@@ -153,6 +158,10 @@ router.get('/:id',
         {
           path: 'league',
           select: 'name creator members'
+        },
+        {
+          path: 'auctioneer',
+          select: 'username firstName lastName'
         },
         {
           path: 'participants.user',

@@ -7,11 +7,20 @@ const sanitizeAuction = (auctionData) => {
   if (!auctionData || typeof auctionData !== 'object') return auctionData;
   
   const {
-    // Remove virtual properties that cause React rendering issues
+    // Remove ALL virtual properties that cause React rendering issues
     progress,
     remainingTeams,
     activeParticipants,
     timeRemaining,
+    memberCount,
+    availableSpots,
+    isFull,
+    canStartAuction,
+    fullName,
+    record,
+    winPercentage,
+    divisionInfo,
+    id, // Remove Mongoose virtual id
     // Keep only serializable properties
     ...sanitized
   } = auctionData;
@@ -29,17 +38,19 @@ const sanitizeAuction = (auctionData) => {
     sanitized.status = String(sanitized.status);
   }
   
-  // Sanitize nested objects
+  // Sanitize nested objects and remove their virtual properties
   if (sanitized.league && typeof sanitized.league === 'object') {
+    const { memberCount, availableSpots, isFull, canStartAuction, id, ...leagueClean } = sanitized.league;
     sanitized.league = {
-      ...sanitized.league,
+      ...leagueClean,
       name: String(sanitized.league.name || ''),
     };
   }
   
   if (sanitized.currentTeam && typeof sanitized.currentTeam === 'object') {
+    const { fullName, record, winPercentage, divisionInfo, id, ...teamClean } = sanitized.currentTeam;
     sanitized.currentTeam = {
-      ...sanitized.currentTeam,
+      ...teamClean,
       name: String(sanitized.currentTeam.name || ''),
       city: String(sanitized.currentTeam.city || ''),
       abbreviation: String(sanitized.currentTeam.abbreviation || ''),
@@ -49,38 +60,120 @@ const sanitizeAuction = (auctionData) => {
   }
   
   if (sanitized.currentHighBidder && typeof sanitized.currentHighBidder === 'object') {
+    const { fullName, id, ...bidderClean } = sanitized.currentHighBidder;
     sanitized.currentHighBidder = {
-      ...sanitized.currentHighBidder,
+      ...bidderClean,
       username: String(sanitized.currentHighBidder.username || ''),
+    };
+  }
+  
+  if (sanitized.currentNominator && typeof sanitized.currentNominator === 'object') {
+    const { fullName, id, ...nominatorClean } = sanitized.currentNominator;
+    sanitized.currentNominator = {
+      ...nominatorClean,
+      username: String(sanitized.currentNominator.username || ''),
+    };
+  }
+  
+  if (sanitized.auctioneer && typeof sanitized.auctioneer === 'object') {
+    const { fullName, id, ...auctioneerClean } = sanitized.auctioneer;
+    sanitized.auctioneer = {
+      ...auctioneerClean,
+      username: String(sanitized.auctioneer.username || ''),
     };
   }
   
   // Sanitize arrays
   if (Array.isArray(sanitized.participants)) {
-    sanitized.participants = sanitized.participants.map(participant => ({
-      ...participant,
-      username: String(participant?.username || ''),
-    }));
+    sanitized.participants = sanitized.participants.map(participant => {
+      const { fullName, id, ...participantClean } = participant;
+      return {
+        ...participantClean,
+        username: String(participant?.username || ''),
+      };
+    });
   }
   
   if (Array.isArray(sanitized.teams)) {
-    sanitized.teams = sanitized.teams.map(team => ({
-      ...team,
-      finalPrice: Number(team?.finalPrice) || 0,
-      nflTeam: team?.nflTeam ? {
-        ...team.nflTeam,
-        name: String(team.nflTeam.name || ''),
-        city: String(team.nflTeam.city || ''),
-        abbreviation: String(team.nflTeam.abbreviation || ''),
-      } : null,
-      soldTo: team?.soldTo ? {
-        ...team.soldTo,
-        username: String(team.soldTo.username || ''),
-      } : null,
-    }));
+    sanitized.teams = sanitized.teams.map(team => {
+      const cleanTeam = { ...team };
+      cleanTeam.finalPrice = Number(team?.finalPrice) || 0;
+      
+      if (team?.nflTeam) {
+        const { fullName, record, winPercentage, divisionInfo, id, ...nflTeamClean } = team.nflTeam;
+        cleanTeam.nflTeam = {
+          ...nflTeamClean,
+          name: String(team.nflTeam.name || ''),
+          city: String(team.nflTeam.city || ''),
+          abbreviation: String(team.nflTeam.abbreviation || ''),
+          conference: String(team.nflTeam.conference || ''),
+          division: String(team.nflTeam.division || ''),
+        };
+      }
+      
+      if (team?.soldTo) {
+        const { fullName, id, ...soldToClean } = team.soldTo;
+        cleanTeam.soldTo = {
+          ...soldToClean,
+          username: String(team.soldTo.username || ''),
+        };
+      }
+      
+      return cleanTeam;
+    });
   }
   
   return sanitized;
+};
+
+// Sanitize bids array
+const sanitizeBids = (bidsData) => {
+  if (!Array.isArray(bidsData)) return bidsData;
+  
+  return bidsData.map(bid => {
+    if (!bid || typeof bid !== 'object') return bid;
+    
+    const { id, ...cleanBid } = bid;
+    
+    // Sanitize bidder
+    if (cleanBid.bidder && typeof cleanBid.bidder === 'object') {
+      const { fullName, id: bidderId, ...bidderClean } = cleanBid.bidder;
+      cleanBid.bidder = {
+        ...bidderClean,
+        username: String(cleanBid.bidder.username || ''),
+      };
+    }
+    
+    // Sanitize team
+    if (cleanBid.team && typeof cleanBid.team === 'object') {
+      const { fullName, record, winPercentage, divisionInfo, id: teamId, ...teamClean } = cleanBid.team;
+      cleanBid.team = {
+        ...teamClean,
+        name: String(cleanBid.team.name || ''),
+        city: String(cleanBid.team.city || ''),
+        abbreviation: String(cleanBid.team.abbreviation || ''),
+      };
+    }
+    
+    // Ensure amount is a number
+    cleanBid.amount = Number(cleanBid.amount) || 0;
+    
+    return cleanBid;
+  });
+};
+
+// Sanitize budget data
+const sanitizeBudget = (budgetData) => {
+  if (!budgetData || typeof budgetData !== 'object') return budgetData;
+  
+  const { id, ...cleanBudget } = budgetData;
+  
+  // Ensure numeric values
+  cleanBudget.spent = Number(cleanBudget.spent) || 0;
+  cleanBudget.remaining = Number(cleanBudget.remaining) || 0;
+  cleanBudget.teamsOwned = Number(cleanBudget.teamsOwned) || 0;
+  
+  return cleanBudget;
 };
 
 // Initial state
@@ -258,13 +351,14 @@ const auctionSlice = createSlice({
       }
     },
     addBid: (state, action) => {
-      state.bids.unshift(action.payload);
+      const sanitizedBid = sanitizeBids([action.payload])[0];
+      state.bids.unshift(sanitizedBid);
       // Update current auction if it's for the current team
       if (state.currentAuction && 
           state.currentAuction.currentTeam && 
-          state.currentAuction.currentTeam._id === action.payload.team._id) {
-        state.currentAuction.currentBid = action.payload.amount;
-        state.currentAuction.currentHighBidder = action.payload.bidder;
+          state.currentAuction.currentTeam._id === sanitizedBid.team._id) {
+        state.currentAuction.currentBid = sanitizedBid.amount;
+        state.currentAuction.currentHighBidder = sanitizedBid.bidder;
       }
     },
     completeTeamSale: (state, action) => {
@@ -403,12 +497,12 @@ const auctionSlice = createSlice({
       
       // Fetch bids
       .addCase(fetchAuctionBids.fulfilled, (state, action) => {
-        state.bids = action.payload.bids;
+        state.bids = sanitizeBids(action.payload.bids);
       })
       
       // Fetch budget
       .addCase(fetchParticipantBudget.fulfilled, (state, action) => {
-        state.participantBudget = action.payload;
+        state.participantBudget = sanitizeBudget(action.payload);
       });
   },
 });
