@@ -1,6 +1,87 @@
-import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
+import { createSlice, createAsyncThunk, createSelector } from '@reduxjs/toolkit';
 import { auctionService } from '../../services/auctionService';
 import toast from 'react-hot-toast';
+
+// Sanitize auction object to remove virtual properties and ensure React-safe values
+const sanitizeAuction = (auctionData) => {
+  if (!auctionData || typeof auctionData !== 'object') return auctionData;
+  
+  const {
+    // Remove virtual properties that cause React rendering issues
+    progress,
+    remainingTeams,
+    activeParticipants,
+    timeRemaining,
+    // Keep only serializable properties
+    ...sanitized
+  } = auctionData;
+  
+  // Ensure all numeric values are properly converted
+  if (sanitized.currentBid !== undefined) {
+    sanitized.currentBid = Number(sanitized.currentBid) || 0;
+  }
+  if (sanitized.minBid !== undefined) {
+    sanitized.minBid = Number(sanitized.minBid) || 1;
+  }
+  
+  // Ensure all string values are properly converted
+  if (sanitized.status !== undefined) {
+    sanitized.status = String(sanitized.status);
+  }
+  
+  // Sanitize nested objects
+  if (sanitized.league && typeof sanitized.league === 'object') {
+    sanitized.league = {
+      ...sanitized.league,
+      name: String(sanitized.league.name || ''),
+    };
+  }
+  
+  if (sanitized.currentTeam && typeof sanitized.currentTeam === 'object') {
+    sanitized.currentTeam = {
+      ...sanitized.currentTeam,
+      name: String(sanitized.currentTeam.name || ''),
+      city: String(sanitized.currentTeam.city || ''),
+      abbreviation: String(sanitized.currentTeam.abbreviation || ''),
+      conference: String(sanitized.currentTeam.conference || ''),
+      division: String(sanitized.currentTeam.division || ''),
+    };
+  }
+  
+  if (sanitized.currentHighBidder && typeof sanitized.currentHighBidder === 'object') {
+    sanitized.currentHighBidder = {
+      ...sanitized.currentHighBidder,
+      username: String(sanitized.currentHighBidder.username || ''),
+    };
+  }
+  
+  // Sanitize arrays
+  if (Array.isArray(sanitized.participants)) {
+    sanitized.participants = sanitized.participants.map(participant => ({
+      ...participant,
+      username: String(participant?.username || ''),
+    }));
+  }
+  
+  if (Array.isArray(sanitized.teams)) {
+    sanitized.teams = sanitized.teams.map(team => ({
+      ...team,
+      finalPrice: Number(team?.finalPrice) || 0,
+      nflTeam: team?.nflTeam ? {
+        ...team.nflTeam,
+        name: String(team.nflTeam.name || ''),
+        city: String(team.nflTeam.city || ''),
+        abbreviation: String(team.nflTeam.abbreviation || ''),
+      } : null,
+      soldTo: team?.soldTo ? {
+        ...team.soldTo,
+        username: String(team.soldTo.username || ''),
+      } : null,
+    }));
+  }
+  
+  return sanitized;
+};
 
 // Initial state
 const initialState = {
@@ -151,7 +232,7 @@ const auctionSlice = createSlice({
       state.error = null;
     },
     setCurrentAuction: (state, action) => {
-      state.currentAuction = action.payload;
+      state.currentAuction = sanitizeAuction(action.payload);
     },
     clearCurrentAuction: (state) => {
       state.currentAuction = null;
@@ -228,7 +309,7 @@ const auctionSlice = createSlice({
       })
       .addCase(fetchAuction.fulfilled, (state, action) => {
         state.loading = false;
-        state.currentAuction = action.payload;
+        state.currentAuction = sanitizeAuction(action.payload);
         state.error = null;
       })
       .addCase(fetchAuction.rejected, (state, action) => {
@@ -243,7 +324,7 @@ const auctionSlice = createSlice({
       })
       .addCase(createAuction.fulfilled, (state, action) => {
         state.loading = false;
-        state.currentAuction = action.payload;
+        state.currentAuction = sanitizeAuction(action.payload);
         state.error = null;
       })
       .addCase(createAuction.rejected, (state, action) => {
@@ -344,13 +425,43 @@ export const {
   updateNextNominator,
 } = auctionSlice.actions;
 
-// Selectors
-export const selectCurrentAuction = (state) => state.auctions.currentAuction;
-export const selectAuctionBids = (state) => state.auctions.bids;
-export const selectParticipantBudget = (state) => state.auctions.participantBudget;
-export const selectAuctionLoading = (state) => state.auctions.loading;
-export const selectBidLoading = (state) => state.auctions.bidLoading;
-export const selectNominateLoading = (state) => state.auctions.nominateLoading;
-export const selectAuctionError = (state) => state.auctions.error;
+// Base selectors
+const selectAuctionState = (state) => state.auctions;
+
+// Memoized selectors
+export const selectCurrentAuction = createSelector(
+  [selectAuctionState],
+  (auctions) => auctions.currentAuction
+);
+
+export const selectAuctionBids = createSelector(
+  [selectAuctionState],
+  (auctions) => auctions.bids
+);
+
+export const selectParticipantBudget = createSelector(
+  [selectAuctionState],
+  (auctions) => auctions.participantBudget
+);
+
+export const selectAuctionLoading = createSelector(
+  [selectAuctionState],
+  (auctions) => auctions.loading
+);
+
+export const selectBidLoading = createSelector(
+  [selectAuctionState],
+  (auctions) => auctions.bidLoading
+);
+
+export const selectNominateLoading = createSelector(
+  [selectAuctionState],
+  (auctions) => auctions.nominateLoading
+);
+
+export const selectAuctionError = createSelector(
+  [selectAuctionState],
+  (auctions) => auctions.error
+);
 
 export default auctionSlice.reducer;

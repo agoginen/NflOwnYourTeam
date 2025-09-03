@@ -13,6 +13,13 @@ const handleValidationErrors = (req, res, next) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     const errorMessages = errors.array().map(error => error.msg);
+    console.log('🚨 Validation failed:', {
+      url: req.url,
+      method: req.method,
+      params: req.params,
+      body: req.body,
+      errors: errorMessages
+    });
     return res.status(400).json({
       success: false,
       message: 'Validation failed',
@@ -135,6 +142,12 @@ router.get('/:id',
   ],
   handleValidationErrors,
   asyncHandler(async (req, res) => {
+    console.log('🔍 Getting auction:', {
+      auctionId: req.params.id,
+      userId: req.user.id,
+      userEmail: req.user.email
+    });
+    
     const auction = await Auction.findById(req.params.id)
       .populate([
         {
@@ -180,8 +193,36 @@ router.get('/:id',
       member.user.toString() === req.user.id.toString() && member.isActive
     );
 
-    if (!isMember && !req.user.isSuperUser) {
+    // Debug logging
+    console.log('🔍 Auction access check:', {
+      userId: req.user.id,
+      auctionId: auction._id,
+      leagueId: auction.league._id,
+      isMember,
+      isParticipant: auction.participants.some(p => p.user.toString() === req.user.id.toString()),
+      leagueMembersCount: auction.league.members.length,
+      participantsCount: auction.participants.length
+    });
+
+    // Also check if user is a participant in the auction
+    const isParticipant = auction.participants.some(p => 
+      p.user.toString() === req.user.id.toString()
+    );
+
+    if (!isMember && !isParticipant && !req.user.isSuperUser) {
       throw new AppError('Access denied. You must be a member of this league.', 403);
+    }
+
+    // If user is a league member but not a participant, add them to the auction
+    if (isMember && !isParticipant) {
+      console.log('🔧 Adding missing member to auction participants');
+      auction.participants.push({
+        user: req.user.id,
+        spent: 0,
+        teamsOwned: [],
+        isActive: true
+      });
+      await auction.save();
     }
 
     res.status(200).json({

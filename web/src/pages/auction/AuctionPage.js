@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { useParams, Navigate } from 'react-router-dom';
+import { useParams, Navigate, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { motion } from 'framer-motion';
 import Countdown from 'react-countdown';
@@ -27,6 +27,7 @@ import {
 import { fetchNFLTeams, selectNFLTeams } from '../../store/slices/nflSlice';
 import { selectUser } from '../../store/slices/authSlice';
 import { socketService } from '../../services/socketService';
+import ErrorBoundary from '../../components/common/ErrorBoundary';
 
 import Button from '../../components/common/Button';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
@@ -34,6 +35,9 @@ import Modal from '../../components/common/Modal';
 
 const AuctionPage = () => {
   const { id } = useParams();
+  
+
+  const navigate = useNavigate();
   const dispatch = useDispatch();
   
   const auction = useSelector(selectCurrentAuction);
@@ -74,7 +78,8 @@ const AuctionPage = () => {
 
   useEffect(() => {
     if (auction?.currentTeam && auction?.currentBid) {
-      const minBid = auction.currentBid + (auction.bidIncrement || 1);
+      const currentBid = Number(auction.currentBid) || 0;
+      const minBid = currentBid + (auction.bidIncrement || 1);
       setBidAmount(minBid.toString());
     }
   }, [auction?.currentTeam, auction?.currentBid, auction?.bidIncrement]);
@@ -83,8 +88,13 @@ const AuctionPage = () => {
     if (error) {
       toast.error(error);
       dispatch(clearError());
+      
+      // If it's an access denied error, redirect to leagues
+      if (error.includes('Access denied') || error.includes('must be a member')) {
+        navigate('/app/leagues');
+      }
     }
-  }, [error, dispatch]);
+  }, [error, dispatch]); // navigate is stable and doesn't need to be in dependencies
 
   if (loading) {
     return <LoadingSpinner text="Loading auction..." />;
@@ -93,6 +103,8 @@ const AuctionPage = () => {
   if (!auction) {
     return <Navigate to="/app/leagues" replace />;
   }
+
+
 
   // Add safety checks for required auction properties
   if (!auction.league || !auction.status) {
@@ -141,8 +153,9 @@ const AuctionPage = () => {
     }
 
     const bid = parseInt(startingBid);
-    if (bid < auction.minBid) {
-      toast.error(`Minimum bid is $${auction.minBid}`);
+    const minBid = Number(auction.minBid) || 1;
+    if (bid < minBid) {
+      toast.error(`Minimum bid is $${minBid}`);
       return;
     }
 
@@ -166,8 +179,9 @@ const AuctionPage = () => {
     }
 
     const bid = parseInt(bidAmount);
-    if (isNaN(bid) || bid <= auction.currentBid) {
-      toast.error(`Bid must be higher than $${auction.currentBid}`);
+    const currentBid = Number(auction.currentBid) || 0;
+    if (isNaN(bid) || bid <= currentBid) {
+      toast.error(`Bid must be higher than $${currentBid}`);
       return;
     }
 
@@ -184,7 +198,8 @@ const AuctionPage = () => {
   };
 
   const handleQuickBid = (increment) => {
-    const newBid = auction.currentBid + increment;
+    const currentBid = Number(auction.currentBid) || 0;
+    const newBid = currentBid + increment;
     setBidAmount(newBid.toString());
   };
 
@@ -211,17 +226,20 @@ const AuctionPage = () => {
     );
   };
 
+
+
   return (
-    <div className="min-h-screen bg-gray-50">
+    <ErrorBoundary>
+      <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">{auction.league.name} Auction</h1>
+              <h1 className="text-2xl font-bold text-gray-900">{String(auction.league?.name || 'Unknown League')} Auction</h1>
               <div className="flex items-center mt-1 space-x-4">
                 <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full text-white ${getAuctionStatusColor()}`}>
-                  {auction.status.toUpperCase()}
+                  {String(auction.status || '').toUpperCase()}
                 </span>
                 <span className="text-sm text-gray-500">
                   {auction.teams?.filter(t => t.status === 'sold').length || 0} / {auction.teams?.length || 0} teams sold
@@ -279,30 +297,30 @@ const AuctionPage = () => {
                   <div className="flex justify-center mb-4">
                     <img
                       src={auction.currentTeam?.logo}
-                      alt={auction.currentTeam?.name}
+                      alt={String(auction.currentTeam?.name || 'Team logo')}
                       className="w-24 h-24 object-contain"
                       onError={(e) => {
-                        e.target.outerHTML = `<div class="w-24 h-24 flex items-center justify-center bg-gray-100 rounded-lg border text-2xl font-bold text-gray-600">${auction.currentTeam?.abbreviation || 'N/A'}</div>`;
+                        e.target.outerHTML = `<div class="w-24 h-24 flex items-center justify-center bg-gray-100 rounded-lg border text-2xl font-bold text-gray-600">${String(auction.currentTeam?.abbreviation || 'N/A')}</div>`;
                       }}
                     />
                   </div>
                   
                   <h2 className="text-3xl font-bold text-gray-900 mb-2">
-                    {auction.currentTeam?.city} {auction.currentTeam?.name}
+                    {String(auction.currentTeam?.city || '')} {String(auction.currentTeam?.name || '')}
                   </h2>
                   
                   <div className="text-sm text-gray-500 mb-4">
-                    {auction.currentTeam?.conference} {auction.currentTeam?.division}
+                    {String(auction.currentTeam?.conference || '')} {String(auction.currentTeam?.division || '')}
                   </div>
 
                   {/* Current Bid Info */}
                   <div className="bg-gray-50 rounded-lg p-4 mb-6">
                     <div className="text-4xl font-bold text-green-600 mb-2">
-                      ${auction.currentBid.toLocaleString()}
+                      ${(auction.currentBid || 0).toLocaleString()}
                     </div>
                     {auction.currentHighBidder && (
                       <div className="text-sm text-gray-600">
-                        High bidder: <span className="font-semibold">{auction.currentHighBidder?.username}</span>
+                        High bidder: <span className="font-semibold">{String(auction.currentHighBidder?.username || 'Unknown')}</span>
                         {isMyHighBid && <span className="text-green-600 ml-1">(You)</span>}
                       </div>
                     )}
@@ -313,7 +331,7 @@ const AuctionPage = () => {
                         <div className="text-sm text-gray-500 mb-1">Time Remaining:</div>
                         <div className="text-2xl">
                           <Countdown
-                            date={new Date(auction.bidEndTime)}
+                            date={auction.bidEndTime ? new Date(auction.bidEndTime) : new Date()}
                             renderer={countdownRenderer}
                           />
                         </div>
@@ -332,7 +350,7 @@ const AuctionPage = () => {
                           onChange={(e) => setBidAmount(e.target.value)}
                           placeholder="Enter bid amount"
                           className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                          min={auction.currentBid + 1}
+                          min={(Number(auction.currentBid) || 0) + 1}
                           // No max limit - unlimited spending
                         />
                         <Button
@@ -425,22 +443,22 @@ const AuctionPage = () => {
                   >
                     <img
                       src={nflTeam?.logo}
-                      alt={nflTeam?.name}
+                      alt={String(nflTeam?.name || 'Team logo')}
                       className="w-8 h-8 mx-auto mb-1"
                       onError={(e) => {
-                        e.target.outerHTML = `<div class="w-8 h-8 mx-auto mb-1 flex items-center justify-center bg-gray-100 rounded border text-xs font-bold text-gray-600">${nflTeam?.abbreviation || 'N/A'}</div>`;
+                        e.target.outerHTML = `<div class="w-8 h-8 mx-auto mb-1 flex items-center justify-center bg-gray-100 rounded border text-xs font-bold text-gray-600">${String(nflTeam?.abbreviation || 'N/A')}</div>`;
                       }}
                     />
                     <div className="text-xs font-medium text-gray-900">
-                      {nflTeam?.city}
+                      {String(nflTeam?.city || '')}
                     </div>
                     {status === 'sold' && (
                       <>
                         <div className="text-xs text-green-600 font-semibold">
-                          ${finalPrice}
+                          ${(finalPrice || 0).toLocaleString()}
                         </div>
                         <div className="text-xs text-gray-500 truncate">
-                          {soldTo?.username}
+                          {String(soldTo?.username || 'Unknown')}
                         </div>
                       </>
                     )}
@@ -466,16 +484,16 @@ const AuctionPage = () => {
                   
                   <div className="flex justify-between">
                     <span className="text-gray-600">Total Spent:</span>
-                    <span className="font-semibold text-blue-600">${budget.spent.toLocaleString()}</span>
+                    <span className="font-semibold text-blue-600">${(budget?.spent || 0).toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">Teams Owned:</span>
-                    <span className="font-semibold">{budget.teamsOwned}</span>
+                    <span className="font-semibold">{budget?.teamsOwned || 0}</span>
                   </div>
                   <div className="flex justify-between border-t pt-3">
                     <span className="text-gray-600">Average per Team:</span>
                     <span className="font-semibold">
-                      ${budget.teamsOwned > 0 ? Math.round(budget.spent / budget.teamsOwned).toLocaleString() : '0'}
+                      ${(budget?.teamsOwned > 0) ? Math.round((budget?.spent || 0) / budget.teamsOwned).toLocaleString() : '0'}
                     </span>
                   </div>
                 </div>
@@ -485,11 +503,11 @@ const AuctionPage = () => {
             {/* Participants */}
             <div className="bg-white rounded-lg shadow p-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                Participants ({auction.participants.length})
+                Participants ({auction.participants?.length || 0})
               </h3>
               
               <div className="space-y-2">
-                {auction.participants.map(participant => (
+                {auction.participants?.map(participant => (
                   <div
                     key={participant._id}
                     className={`flex items-center justify-between p-2 rounded ${
@@ -497,9 +515,9 @@ const AuctionPage = () => {
                     }`}
                   >
                     <span className="font-medium text-gray-900">
-                      {participant.username}
-                      {participant._id === user?.id && <span className="text-blue-600 ml-1">(You)</span>}
-                      {participant._id === auction.auctioneer?._id && <span className="text-purple-600 ml-1">(Host)</span>}
+                      {String(participant?.username || 'Unknown User')}
+                      {participant?._id === user?.id && <span className="text-blue-600 ml-1">(You)</span>}
+                      {participant?._id === auction.auctioneer?._id && <span className="text-purple-600 ml-1">(Host)</span>}
                     </span>
                     {auction.currentNominator?._id === participant._id && (
                       <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">
@@ -521,18 +539,18 @@ const AuctionPage = () => {
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Bids</h3>
                 
                 <div className="space-y-2 max-h-64 overflow-y-auto">
-                  {bids.slice(0, 10).map((bid, index) => (
+                  {bids?.slice(0, 10).map((bid, index) => (
                     <div
                       key={index}
                       className={`flex items-center justify-between p-2 rounded text-sm ${
-                        bid.bidder._id === user?.id ? 'bg-blue-50' : 'bg-gray-50'
+                        bid?.bidder?._id === user?.id ? 'bg-blue-50' : 'bg-gray-50'
                       }`}
                     >
                       <div>
-                        <span className="font-medium">{bid.bidder.username}</span>
-                        <span className="text-gray-500 ml-2">{bid.team.city}</span>
+                        <span className="font-medium">{String(bid?.bidder?.username || 'Unknown')}</span>
+                        <span className="text-gray-500 ml-2">{String(bid?.team?.city || 'Unknown Team')}</span>
                       </div>
-                      <span className="font-semibold">${bid.amount.toLocaleString()}</span>
+                      <span className="font-semibold">${(bid?.amount || 0).toLocaleString()}</span>
                     </div>
                   ))}
                 </div>
@@ -566,14 +584,14 @@ const AuctionPage = () => {
                 >
                   <img
                     src={team.logo}
-                    alt={team.name}
+                    alt={String(team.name || 'Team logo')}
                     className="w-8 h-8 mx-auto mb-1"
                     onError={(e) => {
-                      e.target.outerHTML = `<div class="w-8 h-8 mx-auto mb-1 flex items-center justify-center bg-gray-100 rounded border text-xs font-bold text-gray-600">${team.abbreviation}</div>`;
+                      e.target.outerHTML = `<div class="w-8 h-8 mx-auto mb-1 flex items-center justify-center bg-gray-100 rounded border text-xs font-bold text-gray-600">${String(team.abbreviation || 'N/A')}</div>`;
                     }}
                   />
-                  <div className="text-xs font-medium">{team.city}</div>
-                  <div className="text-xs text-gray-500">{team.name}</div>
+                  <div className="text-xs font-medium">{String(team.city || '')}</div>
+                  <div className="text-xs text-gray-500">{String(team.name || '')}</div>
                 </button>
               ))}
             </div>
@@ -587,9 +605,9 @@ const AuctionPage = () => {
               type="number"
               value={startingBid}
               onChange={(e) => setStartingBid(e.target.value)}
-              placeholder={`Minimum: $${auction.minBid}`}
+              placeholder={`Minimum: $${Number(auction.minBid) || 1}`}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
-              min={auction.minBid}
+              min={Number(auction.minBid) || 1}
               // No max limit - unlimited spending
             />
           </div>
@@ -612,7 +630,8 @@ const AuctionPage = () => {
           </div>
         </div>
       </Modal>
-    </div>
+      </div>
+    </ErrorBoundary>
   );
 };
 

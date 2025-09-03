@@ -201,6 +201,10 @@ const LeagueDetailPage = () => {
       
       if (response.success) {
         toast.success('Draft started successfully! Redirecting...');
+        
+        // Refresh league data to update auction reference
+        dispatch(fetchLeague(league._id));
+        
         // Navigate to the auction page
         setTimeout(() => {
           navigate(`/app/auctions/${response.data._id}`);
@@ -299,9 +303,19 @@ const LeagueDetailPage = () => {
               <div>
                 <h3 className="font-medium text-blue-800">Draft in Progress</h3>
                 <p className="text-sm text-blue-700">Your league draft is currently active. Join now to participate in the auction!</p>
+                {process.env.NODE_ENV === 'development' && (
+                  <p className="text-xs text-gray-600 mt-1">Debug: Auction ID = {league.auction}</p>
+                )}
               </div>
               <Button
-                onClick={() => navigate(`/app/auctions/${league.auction}`)}
+                onClick={() => {
+                  console.log('🔍 Joining auction:', league.auction);
+                  if (!league.auction) {
+                    toast.error('Auction ID not found. Please refresh the page.');
+                    return;
+                  }
+                  navigate(`/app/auctions/${league.auction}`);
+                }}
                 className="bg-blue-600 hover:bg-blue-700"
               >
                 Join Draft

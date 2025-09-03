@@ -46,12 +46,20 @@ class SocketService {
       this.disconnect();
     }
 
-    const socketUrl = process.env.REACT_APP_SOCKET_URL || window.location.origin;
+    // For development, use localhost:5000, for production use current origin
+    const socketUrl = process.env.NODE_ENV === 'development' 
+      ? 'http://localhost:5000' 
+      : window.location.origin;
+    
+    console.log('🔌 Connecting to socket:', socketUrl);
     
     this.socket = io(socketUrl, {
-      transports: ['websocket', 'polling'],
-      timeout: 20000,
-      forceNew: true,
+      transports: ['polling', 'websocket'], // Try polling first, then websocket
+      timeout: 30000, // Increased timeout
+      forceNew: false, // Don't force new connection
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
       query: {
         userId: userId
       }
@@ -85,6 +93,25 @@ class SocketService {
     this.socket.on('connect_error', (error) => {
       console.error('Socket connection error:', error);
       this.isConnected = false;
+      
+      // If it's a timeout error, try to reconnect with polling only
+      if (error.message.includes('timeout')) {
+        console.log('🔄 Retrying with polling transport only...');
+        setTimeout(() => {
+          if (this.socket && !this.isConnected) {
+            this.socket.io.opts.transports = ['polling'];
+          }
+        }, 1000);
+      }
+    });
+
+    this.socket.on('reconnect', (attemptNumber) => {
+      console.log(`🔄 Reconnected after ${attemptNumber} attempts`);
+      this.isConnected = true;
+    });
+
+    this.socket.on('reconnect_error', (error) => {
+      console.error('Socket reconnection error:', error);
     });
 
     // League events
