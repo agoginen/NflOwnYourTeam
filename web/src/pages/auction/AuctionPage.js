@@ -240,6 +240,23 @@ const AuctionPage = () => {
     }
   };
 
+  // Debug teams function (development only)
+  const handleDebugTeams = async () => {
+    try {
+      const response = await fetch(`/api/auctions/${id}/teams-debug`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      const data = await response.json();
+      console.log('🏈 Teams Debug Data:', data);
+      toast.success('Teams debug data logged to console');
+    } catch (error) {
+      console.error('Teams debug failed:', error);
+      toast.error('Teams debug failed');
+    }
+  };
+
   const getAuctionStatusColor = () => {
     switch (auction.status) {
       case 'scheduled': return 'bg-gray-500';
@@ -324,6 +341,14 @@ const AuctionPage = () => {
                     className="bg-yellow-50 border-yellow-300 text-yellow-700"
                   >
                     Debug
+                  </Button>
+                  <Button
+                    onClick={handleDebugTeams}
+                    variant="outline"
+                    size="sm"
+                    className="bg-blue-50 border-blue-300 text-blue-700"
+                  >
+                    Teams
                   </Button>
                   {isAuctioneer && (
                     <Button

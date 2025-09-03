@@ -344,6 +344,15 @@ auctionSchema.methods.start = function() {
 
 // Method to nominate team
 auctionSchema.methods.nominateTeam = function(teamId, nominatorId, startingBid) {
+  console.log('🔍 nominateTeam called with:', {
+    teamId: teamId?.toString(),
+    nominatorId: nominatorId?.toString(),
+    startingBid,
+    auctionStatus: this.status,
+    currentNominator: this.currentNominator?.toString(),
+    teamsCount: this.teams?.length
+  });
+  
   if (this.status !== 'active') {
     throw new Error('Auction is not active');
   }
@@ -353,6 +362,20 @@ auctionSchema.methods.nominateTeam = function(teamId, nominatorId, startingBid) 
   }
   
   const team = this.teams.find(t => t.nflTeam.toString() === teamId.toString());
+  console.log('🔍 Team search result:', {
+    searchingFor: teamId?.toString(),
+    foundTeam: team ? {
+      _id: team._id?.toString(),
+      nflTeam: team.nflTeam?.toString(),
+      status: team.status
+    } : null,
+    allTeamIds: this.teams?.slice(0, 5).map(t => ({
+      _id: t._id?.toString(),
+      nflTeam: t.nflTeam?.toString(),
+      status: t.status
+    }))
+  });
+  
   if (!team || team.status !== 'available') {
     throw new Error('Team is not available for nomination');
   }

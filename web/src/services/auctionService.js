@@ -131,4 +131,10 @@ export const auctionService = {
     const response = await api.post(`/auctions/${auctionId}/reset-participants`);
     return response.data;
   },
+
+  // Get teams debug info (development only)
+  getTeamsDebug: async (auctionId) => {
+    const response = await api.get(`/auctions/${auctionId}/teams-debug`);
+    return response.data;
+  },
 };

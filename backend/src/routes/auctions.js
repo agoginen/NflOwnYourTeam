@@ -333,6 +333,7 @@ router.post('/:id/nominate',
 
     try {
       // Debug logging
+      const targetTeam = auction.teams?.find(t => t.nflTeam?.toString() === teamId.toString());
       console.log('🏈 Nomination attempt:', {
         teamId,
         nominatorId: req.user.id,
@@ -342,7 +343,19 @@ router.post('/:id/nominate',
         isCorrectNominator: auction.currentNominator?.toString() === req.user.id.toString(),
         totalTeams: auction.teams?.length,
         availableTeams: auction.teams?.filter(t => t.status === 'available').length,
-        targetTeam: auction.teams?.find(t => t.nflTeam?.toString() === teamId.toString())
+        targetTeam: targetTeam ? {
+          _id: targetTeam._id,
+          nflTeam: targetTeam.nflTeam?.toString(),
+          status: targetTeam.status,
+          nominatedBy: targetTeam.nominatedBy,
+          soldTo: targetTeam.soldTo
+        } : null,
+        firstFewTeams: auction.teams?.slice(0, 3).map(t => ({
+          _id: t._id,
+          nflTeam: t.nflTeam?.toString(),
+          status: t.status,
+          nflTeamName: t.nflTeam?.name || 'Unknown'
+        }))
       });
       
       // Nominate team
@@ -532,6 +545,57 @@ router.get('/:id/debug',
     res.status(200).json({
       success: true,
       data: debugInfo
+    });
+  })
+);
+
+// @desc    Get auction teams debug info (Development only)
+// @route   GET /api/auctions/:id/teams-debug
+// @access  Private (Development only)
+router.get('/:id/teams-debug',
+  protect,
+  [
+    param('id')
+      .isMongoId()
+      .withMessage('Invalid auction ID')
+  ],
+  handleValidationErrors,
+  asyncHandler(async (req, res) => {
+    const auction = await Auction.findById(req.params.id)
+      .populate([
+        {
+          path: 'teams.nflTeam',
+          select: 'name city abbreviation'
+        }
+      ]);
+
+    if (!auction) {
+      throw new AppError('Auction not found', 404);
+    }
+
+    const teamsInfo = auction.teams.map(team => ({
+      _id: team._id.toString(),
+      nflTeam: {
+        _id: team.nflTeam._id.toString(),
+        name: team.nflTeam.name,
+        city: team.nflTeam.city,
+        abbreviation: team.nflTeam.abbreviation
+      },
+      status: team.status,
+      nominatedBy: team.nominatedBy?.toString() || null,
+      soldTo: team.soldTo?.toString() || null,
+      finalPrice: team.finalPrice || 0
+    }));
+
+    res.status(200).json({
+      success: true,
+      data: {
+        totalTeams: auction.teams.length,
+        availableTeams: auction.teams.filter(t => t.status === 'available').length,
+        nominatedTeams: auction.teams.filter(t => t.status === 'nominated').length,
+        soldTeams: auction.teams.filter(t => t.status === 'sold').length,
+        teams: teamsInfo
+      }
     });
   })
 );
