@@ -73,11 +73,37 @@ const sanitizeAuction = (auctionData) => {
   
   // Sanitize arrays
   if (Array.isArray(sanitized.participants)) {
-    sanitized.participants = sanitized.participants.map(participant => {
+    // Deduplicate participants by user ID first
+    const uniqueParticipants = [];
+    const seenUserIds = new Set();
+    
+    sanitized.participants.forEach(participant => {
+      const userId = participant.user?._id || participant.user;
+      if (!seenUserIds.has(userId.toString())) {
+        seenUserIds.add(userId.toString());
+        uniqueParticipants.push(participant);
+      }
+    });
+    
+    sanitized.participants = uniqueParticipants.map(participant => {
       const { id, ...participantClean } = participant;
+      // Handle nested user data
+      if (participantClean.user && typeof participantClean.user === 'object') {
+        const { id: userId, ...userClean } = participantClean.user;
+        participantClean.user = {
+          ...userClean,
+          username: String(participantClean.user.username || ''),
+          firstName: String(participantClean.user.firstName || ''),
+          lastName: String(participantClean.user.lastName || ''),
+        };
+      }
       return {
         ...participantClean,
-        username: String(participant?.username || ''),
+        // Add convenience properties for easier access
+        _id: String(participantClean._id || ''),
+        username: String(participantClean.user?.username || 'Unknown User'),
+        firstName: String(participantClean.user?.firstName || ''),
+        lastName: String(participantClean.user?.lastName || ''),
       };
     });
   }

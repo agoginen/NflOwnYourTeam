@@ -120,4 +120,15 @@ export const auctionService = {
     });
     return response.data;
   },
+
+  // Debug functions (development only)
+  debugAuction: async (auctionId) => {
+    const response = await api.get(`/auctions/${auctionId}/debug`);
+    return response.data;
+  },
+
+  resetParticipants: async (auctionId) => {
+    const response = await api.post(`/auctions/${auctionId}/reset-participants`);
+    return response.data;
+  },
 };

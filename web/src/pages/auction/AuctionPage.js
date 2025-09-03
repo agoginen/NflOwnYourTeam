@@ -130,7 +130,7 @@ const AuctionPage = () => {
   
   const availableTeams = nflTeams.filter(team => 
     !auction.teams?.some(auctionTeam => 
-      auctionTeam.nflTeam?._id === team._id && auctionTeam.status === 'sold'
+      auctionTeam.nflTeam?._id === team._id && auctionTeam.status !== 'available'
     )
   );
 
@@ -201,6 +201,43 @@ const AuctionPage = () => {
     const currentBid = Number(auction.currentBid) || 0;
     const newBid = currentBid + increment;
     setBidAmount(newBid.toString());
+  };
+
+  // Debug function (development only)
+  const handleDebugAuction = async () => {
+    try {
+      const response = await fetch(`/api/auctions/${id}/debug`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      const data = await response.json();
+      console.log('🐛 Auction Debug Data:', data);
+      toast.success('Debug data logged to console');
+    } catch (error) {
+      console.error('Debug failed:', error);
+      toast.error('Debug failed');
+    }
+  };
+
+  // Reset participants function (development only)
+  const handleResetParticipants = async () => {
+    try {
+      const response = await fetch(`/api/auctions/${id}/reset-participants`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      const data = await response.json();
+      console.log('🔄 Reset Result:', data);
+      toast.success('Participants reset - refresh page');
+      // Refresh auction data
+      dispatch(fetchAuction(id));
+    } catch (error) {
+      console.error('Reset failed:', error);
+      toast.error('Reset failed');
+    }
   };
 
   const getAuctionStatusColor = () => {
@@ -276,6 +313,30 @@ const AuctionPage = () => {
               >
                 {showBidHistory ? 'Hide' : 'Show'} History
               </Button>
+              
+              {/* Debug buttons (development only) */}
+              {process.env.NODE_ENV === 'development' && (
+                <>
+                  <Button
+                    onClick={handleDebugAuction}
+                    variant="outline"
+                    size="sm"
+                    className="bg-yellow-50 border-yellow-300 text-yellow-700"
+                  >
+                    Debug
+                  </Button>
+                  {isAuctioneer && (
+                    <Button
+                      onClick={handleResetParticipants}
+                      variant="outline"
+                      size="sm"
+                      className="bg-red-50 border-red-300 text-red-700"
+                    >
+                      Reset
+                    </Button>
+                  )}
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -507,20 +568,30 @@ const AuctionPage = () => {
                 Participants ({auction.participants?.length || 0})
               </h3>
               
+              {/* Debug info (development only) */}
+              {process.env.NODE_ENV === 'development' && auction.participants && (
+                <div className="mb-4 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs">
+                  <div><strong>Debug:</strong> Raw count: {auction.participants.length}</div>
+                  <div><strong>Current Nominator:</strong> {auction.currentNominator?.username || 'None'} ({auction.currentNominator?._id})</div>
+                  <div><strong>Status:</strong> {auction.status}</div>
+                  <div><strong>Unique User IDs:</strong> {[...new Set(auction.participants.map(p => p.user?._id || 'no-id'))].length}</div>
+                </div>
+              )}
+              
               <div className="space-y-2">
                 {auction.participants?.map(participant => (
                   <div
                     key={participant._id}
                     className={`flex items-center justify-between p-2 rounded ${
-                      participant._id === user?.id ? 'bg-blue-50 border border-blue-200' : ''
+                      participant.user?._id === user?.id ? 'bg-blue-50 border border-blue-200' : ''
                     }`}
                   >
                     <span className="font-medium text-gray-900">
                       {String(participant?.username || 'Unknown User')}
-                      {participant?._id === user?.id && <span className="text-blue-600 ml-1">(You)</span>}
-                      {participant?._id === auction.auctioneer?._id && <span className="text-purple-600 ml-1">(Host)</span>}
+                      {participant.user?._id === user?.id && <span className="text-blue-600 ml-1">(You)</span>}
+                      {participant.user?._id === auction.auctioneer?._id && <span className="text-purple-600 ml-1">(Host)</span>}
                     </span>
-                    {auction.currentNominator?._id === participant._id && (
+                    {auction.currentNominator?._id === participant.user?._id && auction.status === 'active' && (
                       <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">
                         Nominating
                       </span>

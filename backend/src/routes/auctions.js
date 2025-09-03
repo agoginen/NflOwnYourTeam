@@ -93,6 +93,9 @@ router.post('/',
 
     // Generate draft order
     auction.generateDraftOrder();
+    
+    // Start the auction immediately
+    auction.start();
     await auction.save();
 
     // Update league
@@ -108,6 +111,10 @@ router.post('/',
       },
       {
         path: 'auctioneer',
+        select: 'username firstName lastName'
+      },
+      {
+        path: 'currentNominator',
         select: 'username firstName lastName'
       },
       {
@@ -164,6 +171,10 @@ router.get('/:id',
           select: 'username firstName lastName'
         },
         {
+          path: 'currentNominator',
+          select: 'username firstName lastName'
+        },
+        {
           path: 'participants.user',
           select: 'username firstName lastName'
         },
@@ -182,10 +193,6 @@ router.get('/:id',
         {
           path: 'currentTeam',
           select: 'name city abbreviation colors logo'
-        },
-        {
-          path: 'currentNominator',
-          select: 'username firstName lastName'
         },
         {
           path: 'currentHighBidder',
@@ -210,7 +217,17 @@ router.get('/:id',
       isMember,
       isParticipant: auction.participants.some(p => p.user.toString() === req.user.id.toString()),
       leagueMembersCount: auction.league.members.length,
-      participantsCount: auction.participants.length
+      participantsCount: auction.participants.length,
+      leagueMembers: auction.league.members.map(m => ({ 
+        userId: m.user.toString(), 
+        isActive: m.isActive,
+        username: m.user?.username || 'Unknown'
+      })),
+      auctionParticipants: auction.participants.map(p => ({ 
+        userId: p.user.toString(), 
+        isActive: p.isActive,
+        username: p.user?.username || 'Unknown'
+      }))
     });
 
     // Also check if user is a participant in the auction
@@ -222,17 +239,8 @@ router.get('/:id',
       throw new AppError('Access denied. You must be a member of this league.', 403);
     }
 
-    // If user is a league member but not a participant, add them to the auction
-    if (isMember && !isParticipant) {
-      console.log('🔧 Adding missing member to auction participants');
-      auction.participants.push({
-        user: req.user.id,
-        spent: 0,
-        teamsOwned: [],
-        isActive: true
-      });
-      await auction.save();
-    }
+    // Note: Participants are set during auction creation from league members
+    // We should not add participants dynamically as this causes inconsistent counts
 
     res.status(200).json({
       success: true,
@@ -324,6 +332,19 @@ router.post('/:id/nominate',
     }
 
     try {
+      // Debug logging
+      console.log('🏈 Nomination attempt:', {
+        teamId,
+        nominatorId: req.user.id,
+        startingBid,
+        auctionStatus: auction.status,
+        currentNominator: auction.currentNominator?.toString(),
+        isCorrectNominator: auction.currentNominator?.toString() === req.user.id.toString(),
+        totalTeams: auction.teams?.length,
+        availableTeams: auction.teams?.filter(t => t.status === 'available').length,
+        targetTeam: auction.teams?.find(t => t.nflTeam?.toString() === teamId.toString())
+      });
+      
       // Nominate team
       auction.nominateTeam(teamId, req.user.id, startingBid);
       await auction.save();
@@ -429,6 +450,166 @@ router.post('/:id/bid',
     } catch (error) {
       throw new AppError(error.message, 400);
     }
+  })
+);
+
+// @desc    Debug auction data
+// @route   GET /api/auctions/:id/debug
+// @access  Private (Development only)
+router.get('/:id/debug',
+  protect,
+  [
+    param('id')
+      .isMongoId()
+      .withMessage('Invalid auction ID')
+  ],
+  handleValidationErrors,
+  asyncHandler(async (req, res) => {
+    const auction = await Auction.findById(req.params.id)
+      .populate([
+        {
+          path: 'league',
+          select: 'name creator members'
+        },
+        {
+          path: 'auctioneer',
+          select: 'username firstName lastName'
+        },
+        {
+          path: 'currentNominator',
+          select: 'username firstName lastName'
+        },
+        {
+          path: 'participants.user',
+          select: 'username firstName lastName'
+        }
+      ]);
+
+    if (!auction) {
+      throw new AppError('Auction not found', 404);
+    }
+
+    const debugInfo = {
+      auctionId: auction._id,
+      status: auction.status,
+      participantCount: auction.participants?.length || 0,
+      participants: auction.participants?.map(p => ({
+        id: p.user._id,
+        username: p.user.username,
+        spent: p.spent,
+        teamsOwned: p.teamsOwned?.length || 0
+      })) || [],
+      currentNominator: auction.currentNominator ? {
+        id: auction.currentNominator._id,
+        username: auction.currentNominator.username
+      } : null,
+      auctioneer: auction.auctioneer ? {
+        id: auction.auctioneer._id,
+        username: auction.auctioneer.username
+      } : null,
+      draftOrder: auction.draftOrder?.map(d => ({
+        userId: d.user,
+        position: d.position
+      })) || [],
+      nominationOrder: auction.nominationOrder?.slice(0, 5).map(n => ({
+        userId: n.user,
+        round: n.round,
+        position: n.position,
+        hasNominated: n.hasNominated
+      })) || [],
+      currentNominationIndex: auction.currentNominationIndex,
+      currentRound: auction.currentRound,
+      requestingUserId: req.user.id,
+      teamStatuses: auction.teams?.slice(0, 10).map(t => ({
+        nflTeamId: t.nflTeam,
+        status: t.status,
+        nominatedBy: t.nominatedBy,
+        soldTo: t.soldTo
+      })) || [],
+      availableTeamsCount: auction.teams?.filter(t => t.status === 'available').length || 0
+    };
+
+    res.status(200).json({
+      success: true,
+      data: debugInfo
+    });
+  })
+);
+
+// @desc    Reset auction participants (Development only)
+// @route   POST /api/auctions/:id/reset-participants
+// @access  Private (Development only)
+router.post('/:id/reset-participants',
+  protect,
+  [
+    param('id')
+      .isMongoId()
+      .withMessage('Invalid auction ID')
+  ],
+  handleValidationErrors,
+  asyncHandler(async (req, res) => {
+    const auction = await Auction.findById(req.params.id)
+      .populate('league');
+
+    if (!auction) {
+      throw new AppError('Auction not found', 404);
+    }
+
+    // Check if user is league admin
+    if (auction.league.creator.toString() !== req.user.id.toString() && !req.user.isSuperUser) {
+      throw new AppError('Access denied. Only league administrators can reset participants.', 403);
+    }
+
+    // Reset participants to only league members (deduplicated)
+    const activeMembers = auction.league.members.filter(member => member.isActive);
+    console.log('🔧 Resetting participants:', {
+      totalLeagueMembers: auction.league.members.length,
+      activeMembers: activeMembers.length,
+      currentParticipants: auction.participants.length,
+      activeMembers: activeMembers.map(m => ({ 
+        userId: m.user.toString(), 
+        username: m.user?.username || 'Unknown' 
+      }))
+    });
+    
+    auction.participants = activeMembers.map(member => ({
+      user: member.user,
+      spent: 0,
+      teamsOwned: [],
+      isActive: true
+    }));
+
+    // Regenerate draft order
+    auction.generateDraftOrder();
+    
+    // Start the auction
+    if (auction.status === 'scheduled') {
+      auction.start();
+    }
+    
+    await auction.save();
+
+    // Populate updated data
+    await auction.populate([
+      {
+        path: 'currentNominator',
+        select: 'username firstName lastName'
+      },
+      {
+        path: 'participants.user',
+        select: 'username firstName lastName'
+      }
+    ]);
+
+    res.status(200).json({
+      success: true,
+      message: 'Participants reset successfully',
+      data: {
+        participantCount: auction.participants.length,
+        participants: auction.participants.map(p => p.user.username),
+        currentNominator: auction.currentNominator?.username
+      }
+    });
   })
 );
 
