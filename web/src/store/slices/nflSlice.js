@@ -6,13 +6,9 @@ const sanitizeNFLTeam = (teamData) => {
   if (!teamData || typeof teamData !== 'object') return teamData;
   
   const {
-    // Remove virtual properties that cause React rendering issues
-    fullName,
-    record,
-    winPercentage,
-    divisionInfo,
+    // Remove Mongoose virtual id that causes React rendering issues
     id, // Remove Mongoose virtual id
-    // Keep only serializable properties
+    // Keep only serializable properties (including computed values)
     ...sanitized
   } = teamData;
   
@@ -31,6 +27,26 @@ const sanitizeNFLTeam = (teamData) => {
   }
   if (sanitized.division !== undefined) {
     sanitized.division = String(sanitized.division);
+  }
+  
+  // Add computed values for UI features (as primitive values, not objects)
+  if (sanitized.city && sanitized.name) {
+    sanitized.fullName = `${sanitized.city} ${sanitized.name}`;
+  }
+  
+  // Add record computation if wins/losses exist
+  if (sanitized.currentSeason) {
+    const { wins, losses, ties } = sanitized.currentSeason;
+    if (wins !== undefined && losses !== undefined) {
+      sanitized.record = ties > 0 ? `${wins}-${losses}-${ties}` : `${wins}-${losses}`;
+      const totalGames = wins + losses + ties;
+      sanitized.winPercentage = totalGames > 0 ? (wins + ties * 0.5) / totalGames : 0;
+    }
+  }
+  
+  // Add division info
+  if (sanitized.conference && sanitized.division) {
+    sanitized.divisionInfo = `${sanitized.conference} ${sanitized.division}`;
   }
   
   return sanitized;

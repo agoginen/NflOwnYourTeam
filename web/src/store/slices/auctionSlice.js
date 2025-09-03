@@ -7,21 +7,9 @@ const sanitizeAuction = (auctionData) => {
   if (!auctionData || typeof auctionData !== 'object') return auctionData;
   
   const {
-    // Remove ALL virtual properties that cause React rendering issues
-    progress,
-    remainingTeams,
-    activeParticipants,
-    timeRemaining,
-    memberCount,
-    availableSpots,
-    isFull,
-    canStartAuction,
-    fullName,
-    record,
-    winPercentage,
-    divisionInfo,
+    // Remove Mongoose virtual id that causes React rendering issues
     id, // Remove Mongoose virtual id
-    // Keep only serializable properties
+    // Keep only serializable properties (including computed values)
     ...sanitized
   } = auctionData;
   
@@ -40,7 +28,7 @@ const sanitizeAuction = (auctionData) => {
   
   // Sanitize nested objects and remove their virtual properties
   if (sanitized.league && typeof sanitized.league === 'object') {
-    const { memberCount, availableSpots, isFull, canStartAuction, id, ...leagueClean } = sanitized.league;
+    const { id, ...leagueClean } = sanitized.league;
     sanitized.league = {
       ...leagueClean,
       name: String(sanitized.league.name || ''),
@@ -48,7 +36,7 @@ const sanitizeAuction = (auctionData) => {
   }
   
   if (sanitized.currentTeam && typeof sanitized.currentTeam === 'object') {
-    const { fullName, record, winPercentage, divisionInfo, id, ...teamClean } = sanitized.currentTeam;
+    const { id, ...teamClean } = sanitized.currentTeam;
     sanitized.currentTeam = {
       ...teamClean,
       name: String(sanitized.currentTeam.name || ''),
@@ -60,7 +48,7 @@ const sanitizeAuction = (auctionData) => {
   }
   
   if (sanitized.currentHighBidder && typeof sanitized.currentHighBidder === 'object') {
-    const { fullName, id, ...bidderClean } = sanitized.currentHighBidder;
+    const { id, ...bidderClean } = sanitized.currentHighBidder;
     sanitized.currentHighBidder = {
       ...bidderClean,
       username: String(sanitized.currentHighBidder.username || ''),
@@ -68,7 +56,7 @@ const sanitizeAuction = (auctionData) => {
   }
   
   if (sanitized.currentNominator && typeof sanitized.currentNominator === 'object') {
-    const { fullName, id, ...nominatorClean } = sanitized.currentNominator;
+    const { id, ...nominatorClean } = sanitized.currentNominator;
     sanitized.currentNominator = {
       ...nominatorClean,
       username: String(sanitized.currentNominator.username || ''),
@@ -76,7 +64,7 @@ const sanitizeAuction = (auctionData) => {
   }
   
   if (sanitized.auctioneer && typeof sanitized.auctioneer === 'object') {
-    const { fullName, id, ...auctioneerClean } = sanitized.auctioneer;
+    const { id, ...auctioneerClean } = sanitized.auctioneer;
     sanitized.auctioneer = {
       ...auctioneerClean,
       username: String(sanitized.auctioneer.username || ''),
@@ -86,7 +74,7 @@ const sanitizeAuction = (auctionData) => {
   // Sanitize arrays
   if (Array.isArray(sanitized.participants)) {
     sanitized.participants = sanitized.participants.map(participant => {
-      const { fullName, id, ...participantClean } = participant;
+      const { id, ...participantClean } = participant;
       return {
         ...participantClean,
         username: String(participant?.username || ''),
@@ -100,7 +88,7 @@ const sanitizeAuction = (auctionData) => {
       cleanTeam.finalPrice = Number(team?.finalPrice) || 0;
       
       if (team?.nflTeam) {
-        const { fullName, record, winPercentage, divisionInfo, id, ...nflTeamClean } = team.nflTeam;
+        const { id, ...nflTeamClean } = team.nflTeam;
         cleanTeam.nflTeam = {
           ...nflTeamClean,
           name: String(team.nflTeam.name || ''),
@@ -112,7 +100,7 @@ const sanitizeAuction = (auctionData) => {
       }
       
       if (team?.soldTo) {
-        const { fullName, id, ...soldToClean } = team.soldTo;
+        const { id, ...soldToClean } = team.soldTo;
         cleanTeam.soldTo = {
           ...soldToClean,
           username: String(team.soldTo.username || ''),
@@ -137,7 +125,7 @@ const sanitizeBids = (bidsData) => {
     
     // Sanitize bidder
     if (cleanBid.bidder && typeof cleanBid.bidder === 'object') {
-      const { fullName, id: bidderId, ...bidderClean } = cleanBid.bidder;
+      const { id: bidderId, ...bidderClean } = cleanBid.bidder;
       cleanBid.bidder = {
         ...bidderClean,
         username: String(cleanBid.bidder.username || ''),
@@ -146,7 +134,7 @@ const sanitizeBids = (bidsData) => {
     
     // Sanitize team
     if (cleanBid.team && typeof cleanBid.team === 'object') {
-      const { fullName, record, winPercentage, divisionInfo, id: teamId, ...teamClean } = cleanBid.team;
+      const { id: teamId, ...teamClean } = cleanBid.team;
       cleanBid.team = {
         ...teamClean,
         name: String(cleanBid.team.name || ''),

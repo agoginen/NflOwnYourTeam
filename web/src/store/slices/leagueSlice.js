@@ -7,13 +7,9 @@ const sanitizeLeague = (leagueData) => {
   if (!leagueData || typeof leagueData !== 'object') return leagueData;
   
   const {
-    // Remove virtual properties that cause React rendering issues
-    memberCount,
-    availableSpots,
-    isFull,
-    canStartAuction,
+    // Remove Mongoose virtual id that causes React rendering issues
     id, // Remove Mongoose virtual id
-    // Keep only serializable properties
+    // Keep only serializable properties (including virtual computed values)
     ...sanitized
   } = leagueData;
   
@@ -84,6 +80,15 @@ const sanitizeLeague = (leagueData) => {
       }
       return cleanTeam;
     });
+  }
+  
+  // Add computed values for UI features (as primitive values, not objects)
+  if (Array.isArray(sanitized.members)) {
+    const activeMembers = sanitized.members.filter(member => member.isActive);
+    sanitized.memberCount = activeMembers.length;
+    sanitized.availableSpots = (sanitized.maxMembers || 0) - activeMembers.length;
+    sanitized.isFull = activeMembers.length >= (sanitized.maxMembers || 0);
+    sanitized.canStartAuction = activeMembers.length >= 2 && sanitized.status === 'draft';
   }
   
   return sanitized;
