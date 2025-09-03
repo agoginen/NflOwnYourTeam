@@ -353,6 +353,17 @@ auctionSchema.methods.nominateTeam = function(teamId, nominatorId, startingBid) 
     teamsCount: this.teams?.length
   });
   
+  // Validate input parameters
+  if (!teamId) {
+    throw new Error('Team ID is required');
+  }
+  if (!nominatorId) {
+    throw new Error('Nominator ID is required');
+  }
+  if (!startingBid || startingBid < 1) {
+    throw new Error('Starting bid must be at least 1');
+  }
+  
   if (this.status !== 'active') {
     throw new Error('Auction is not active');
   }
@@ -361,7 +372,13 @@ auctionSchema.methods.nominateTeam = function(teamId, nominatorId, startingBid) 
     throw new Error('Not your turn to nominate');
   }
   
-  const team = this.teams.find(t => t.nflTeam.toString() === teamId.toString());
+  // Try multiple ways to find the team to handle different data types
+  const team = this.teams.find(t => {
+    if (!t.nflTeam) return false;
+    const teamNflTeamId = t.nflTeam.toString();
+    const searchTeamId = teamId.toString();
+    return teamNflTeamId === searchTeamId;
+  });
   console.log('🔍 Team search result:', {
     searchingFor: teamId?.toString(),
     foundTeam: team ? {
@@ -373,11 +390,36 @@ auctionSchema.methods.nominateTeam = function(teamId, nominatorId, startingBid) 
       _id: t._id?.toString(),
       nflTeam: t.nflTeam?.toString(),
       status: t.status
+    })),
+    totalTeams: this.teams?.length,
+    availableTeams: this.teams?.filter(t => t.status === 'available').length,
+    teamsWithMatchingNflTeam: this.teams?.filter(t => t.nflTeam?.toString() === teamId?.toString()).map(t => ({
+      _id: t._id?.toString(),
+      nflTeam: t.nflTeam?.toString(),
+      status: t.status
     }))
   });
   
-  if (!team || team.status !== 'available') {
-    throw new Error('Team is not available for nomination');
+  if (!team) {
+    console.log('❌ Team not found in auction teams array');
+    console.log('Searching for teamId:', teamId?.toString());
+    console.log('Available team IDs:', this.teams?.map(t => t.nflTeam?.toString()).filter(Boolean));
+    console.log('Teams array length:', this.teams?.length || 0);
+    console.log('First 5 teams in auction:', this.teams?.slice(0, 5).map(t => ({
+      _id: t._id?.toString(),
+      nflTeam: t.nflTeam?.toString(),
+      status: t.status
+    })));
+    throw new Error(`Team with ID ${teamId} not found in auction`);
+  }
+  
+  if (team.status !== 'available') {
+    console.log('❌ Team found but not available:', {
+      teamId: teamId?.toString(),
+      teamStatus: team.status,
+      teamNflTeam: team.nflTeam?.toString()
+    });
+    throw new Error(`Team is not available for nomination (status: ${team.status})`);
   }
   
   // Validate starting bid meets minimum requirement

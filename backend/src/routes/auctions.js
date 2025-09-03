@@ -18,7 +18,13 @@ const handleValidationErrors = (req, res, next) => {
       method: req.method,
       params: req.params,
       body: req.body,
-      errors: errorMessages
+      errors: errorMessages,
+      detailedErrors: errors.array().map(error => ({
+        field: error.path || error.param,
+        value: error.value,
+        message: error.msg,
+        location: error.location
+      }))
     });
     return res.status(400).json({
       success: false,
@@ -123,15 +129,26 @@ router.post('/',
     const nflTeams = await NFLTeam.find({ isActive: true });
 
     // Create auction
+    const auctionTeams = nflTeams.map(team => ({
+      nflTeam: team._id,
+      status: 'available'
+    }));
+    
+    console.log('🏈 Creating auction with teams:', {
+      totalNflTeams: nflTeams.length,
+      auctionTeamsCount: auctionTeams.length,
+      firstFewTeams: auctionTeams.slice(0, 3).map(t => ({
+        nflTeam: t.nflTeam?.toString(),
+        status: t.status
+      }))
+    });
+    
     const auction = await Auction.create({
       league: league._id,
       auctioneer: req.user.id, // Set the creator as the auctioneer
       startTime: startTime ? new Date(startTime) : new Date(),
       bidTimer: league.auctionSettings.auctionTimer,
-      teams: nflTeams.map(team => ({
-        nflTeam: team._id,
-        status: 'available'
-      })),
+      teams: auctionTeams,
       participants: league.members.filter(member => member.isActive).map(member => ({
         user: member.user,
         spent: 0,
@@ -290,6 +307,19 @@ router.get('/:id',
     if (!auction) {
       throw new AppError('Auction not found', 404);
     }
+    
+    // Debug: Log auction teams data
+    console.log('🔍 Auction teams debug:', {
+      auctionId: auction._id,
+      totalTeams: auction.teams?.length || 0,
+      teamsWithNflTeam: auction.teams?.filter(t => t.nflTeam).length || 0,
+      firstFewTeams: auction.teams?.slice(0, 3).map(t => ({
+        _id: t._id?.toString(),
+        nflTeam: t.nflTeam?.toString(),
+        status: t.status,
+        nflTeamPopulated: !!t.nflTeam?.name
+      })) || []
+    });
 
     // Check if user is a member of the league
     const isMember = auction.league.members.some(member =>
@@ -491,20 +521,62 @@ router.post('/:id/start',
  */
 router.post('/:id/nominate',
   protect,
-  [
-    param('id')
-      .isMongoId()
-      .withMessage('Invalid auction ID'),
-    body('teamId')
-      .isMongoId()
-      .withMessage('Invalid team ID'),
-    body('startingBid')
-      .isInt({ min: 1 })
-      .withMessage('Starting bid must be at least 1')
-  ],
-  handleValidationErrors,
+  // Temporarily disable validation for debugging
+  // [
+  //   param('id')
+  //     .isMongoId()
+  //     .withMessage('Invalid auction ID'),
+  //   body('teamId')
+  //     .isMongoId()
+  //     .withMessage('Invalid team ID'),
+  //   body('startingBid')
+  //     .isNumeric()
+  //     .withMessage('Starting bid must be a number')
+  //     .custom((value) => {
+  //       const num = parseInt(value);
+  //       if (isNaN(num) || num < 1) {
+  //         throw new Error('Starting bid must be at least 1');
+  //       }
+  //       return true;
+  //     })
+  // ],
+  // handleValidationErrors,
   asyncHandler(async (req, res) => {
     const { teamId, startingBid } = req.body;
+    
+    console.log('🔍 Nomination request received:', {
+      teamId: teamId?.toString(),
+      teamIdType: typeof teamId,
+      startingBid: startingBid?.toString(),
+      startingBidType: typeof startingBid,
+      auctionId: req.params.id,
+      userId: req.user.id?.toString()
+    });
+    
+    // Basic validation (temporarily replacing express-validator)
+    if (!teamId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Team ID is required'
+      });
+    }
+    
+    if (!startingBid) {
+      return res.status(400).json({
+        success: false,
+        message: 'Starting bid is required'
+      });
+    }
+    
+    // Ensure startingBid is an integer
+    const bidAmount = parseInt(startingBid);
+    
+    if (isNaN(bidAmount) || bidAmount < 1) {
+      return res.status(400).json({
+        success: false,
+        message: 'Starting bid must be at least 1'
+      });
+    }
 
     const auction = await Auction.findById(req.params.id)
       .populate([
@@ -525,31 +597,38 @@ router.post('/:id/nominate',
       // Debug logging
       const targetTeam = auction.teams?.find(t => t.nflTeam?.toString() === teamId.toString());
       console.log('🏈 Nomination attempt:', {
-        teamId,
-        nominatorId: req.user.id,
-        startingBid,
+        teamId: teamId?.toString(),
+        teamIdType: typeof teamId,
+        nominatorId: req.user.id?.toString(),
+        startingBid: bidAmount,
         auctionStatus: auction.status,
         currentNominator: auction.currentNominator?.toString(),
         isCorrectNominator: auction.currentNominator?.toString() === req.user.id.toString(),
         totalTeams: auction.teams?.length,
         availableTeams: auction.teams?.filter(t => t.status === 'available').length,
         targetTeam: targetTeam ? {
-          _id: targetTeam._id,
+          _id: targetTeam._id?.toString(),
           nflTeam: targetTeam.nflTeam?.toString(),
           status: targetTeam.status,
-          nominatedBy: targetTeam.nominatedBy,
-          soldTo: targetTeam.soldTo
+          nominatedBy: targetTeam.nominatedBy?.toString(),
+          soldTo: targetTeam.soldTo?.toString()
         } : null,
         firstFewTeams: auction.teams?.slice(0, 3).map(t => ({
-          _id: t._id,
+          _id: t._id?.toString(),
           nflTeam: t.nflTeam?.toString(),
           status: t.status,
           nflTeamName: t.nflTeam?.name || 'Unknown'
-        }))
+        })),
+        teamsWithMatchingId: auction.teams?.filter(t => t.nflTeam?.toString() === teamId?.toString()).map(t => ({
+          _id: t._id?.toString(),
+          nflTeam: t.nflTeam?.toString(),
+          status: t.status
+        })),
+        allTeamIds: auction.teams?.map(t => t.nflTeam?.toString()).filter(Boolean)
       });
       
       // Nominate team
-      auction.nominateTeam(teamId, req.user.id, startingBid);
+      auction.nominateTeam(teamId, req.user.id, bidAmount);
       await auction.save();
 
       // Populate updated data
@@ -574,7 +653,7 @@ router.post('/:id/nominate',
         auction: auction,
         team: auction.currentTeam,
         nominator: auction.currentNominator,
-        startingBid: startingBid,
+        startingBid: bidAmount,
         bidEndTime: auction.bidEndTime
       });
 
@@ -666,12 +745,22 @@ router.post('/:id/bid',
       .isMongoId()
       .withMessage('Invalid team ID'),
     body('bidAmount')
-      .isInt({ min: 1 })
-      .withMessage('Bid amount must be at least 1')
+      .isNumeric()
+      .withMessage('Bid amount must be a number')
+      .custom((value) => {
+        const num = parseInt(value);
+        if (isNaN(num) || num < 1) {
+          throw new Error('Bid amount must be at least 1');
+        }
+        return true;
+      })
   ],
   handleValidationErrors,
   asyncHandler(async (req, res) => {
     const { teamId, bidAmount } = req.body;
+    
+    // Ensure bidAmount is an integer
+    const bidAmountInt = parseInt(bidAmount);
 
     const auction = await Auction.findById(req.params.id);
 
@@ -681,7 +770,7 @@ router.post('/:id/bid',
 
     try {
       // Place bid
-      auction.placeBid(teamId, req.user.id, bidAmount);
+      auction.placeBid(teamId, req.user.id, bidAmountInt);
       await auction.save();
 
       // Populate updated data
@@ -697,7 +786,7 @@ router.post('/:id/bid',
       io.to(`auction-${auction._id}`).emit('bid-placed', {
         teamId: teamId,
         bidder: auction.currentHighBidder,
-        bidAmount: bidAmount,
+        bidAmount: bidAmountInt,
         bidEndTime: auction.bidEndTime,
         timeRemaining: auction.timeRemaining
       });
